@@ -363,6 +363,6 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     logger.info('Hours: %d' % np.int((end - start) / 3600))
     logger.info('Done')
 
-# python tools/train.py --cfg configs/cityscapes/pidnet_large_cityscapes.yaml GPUS (0,) TRAIN.BATCH_SIZE_PER_GPU 6
+# python tools/train.py --cfg configs/cityscapes/pidnet_large_cityscapes.yaml TRAIN.BATCH_SIZE_PER_GPU 6
 if __name__ == '__main__':
     main()

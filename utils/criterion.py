@@ -64,7 +64,7 @@ class OhemCrossEntropy(nn.Module):
 
     def _ohem_forward(self, score, target, **kwargs):
 
-        pred = F.softmax(score, dim=1)
+        pred = F.softmax(score, dim=1) # [3, 2, 1024, 1024]
         pixel_losses = self.criterion(score, target).contiguous().view(-1)
         mask = target.contiguous().view(-1) != self.ignore_label
 
@@ -72,7 +72,10 @@ class OhemCrossEntropy(nn.Module):
         tmp_target[tmp_target == self.ignore_label] = 0
         pred = pred.gather(1, tmp_target.unsqueeze(1))
         pred, ind = pred.contiguous().view(-1,)[mask].contiguous().sort()
-        min_value = pred[min(self.min_kept, pred.numel() - 1)]
+        if len(pred) == 0:
+            # tensor(37.0625, device='cuda:0', grad_fn=<MeanBackward0>)
+            return pixel_losses.mean()
+        min_value = pred[min(self.min_kept, pred.numel() - 1)] #
         threshold = max(min_value, self.thresh)
 
         pixel_losses = pixel_losses[mask][ind]

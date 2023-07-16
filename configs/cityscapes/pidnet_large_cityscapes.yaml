@@ -13,7 +13,7 @@ DATASET:
   ROOT: data/
   TEST_SET: 'list/cityscapes/val.lst'
   TRAIN_SET: 'list/cityscapes/train.lst'
-  NUM_CLASSES: 19
+  NUM_CLASSES: 2
 MODEL:
   NAME: pidnet_large
   NUM_OUTPUTS: 2

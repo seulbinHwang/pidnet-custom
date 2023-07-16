@@ -67,9 +67,9 @@ class Cityscapes(BaseDataset):
             19: ignore_label,  # traffic light
             20: ignore_label,  # traffic sign
             21: ignore_label,  # vegetation
-            22: 9,  # terrain
+            22: 0,  # terrain
             23: ignore_label,  # sky
-            24: 11,  # person
+            24: 1,  # person
             25: ignore_label,  # rider
             26: ignore_label,  # car
             27: ignore_label,  # truck
@@ -80,11 +80,7 @@ class Cityscapes(BaseDataset):
             32: ignore_label,  # motorcycle
             33: ignore_label  # bicycle /
         }
-        # self.class_weights = torch.FloatTensor([0.8373, 0.918, 0.866, 1.0345,
-        #                                 1.0166, 0.9969, 0.9754, 1.0489,
-        #                                 0.8786, 1.0023, 0.9539, 0.9843,
-        #                                 1.1116, 0.9037, 1.0865, 1.0955,
-        #                                 1.0865, 1.1529, 1.0507]).cuda()
+        self.class_weights = torch.FloatTensor([ 1.0023, 0.9843,]).cuda()
         
         self.bd_dilate_size = bd_dilate_size
     

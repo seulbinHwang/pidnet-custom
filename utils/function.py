@@ -47,7 +47,7 @@ def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
     avg_bce_loss = AverageMeter()
     tic = time.time()
     cur_iters = epoch * epoch_iters
-    writer = writer_dict['writer']
+    summary_writer = writer_dict['writer'] # SummaryWriter(logdir=tb_log_dir)
     global_steps = writer_dict['train_global_steps']
     for i_iter, batch in enumerate(trainloader, 0):
         """
@@ -98,7 +98,7 @@ bd_gts: 이 값의 shape는 추가적인 레이블 정보의 형태에 따라 �
                       ave_acc.average(), avg_sem_loss.average(), avg_bce_loss.average(),ave_loss.average()-avg_sem_loss.average()-avg_bce_loss.average())
             logging.info(msg)
 
-    writer.add_scalar('train_loss', ave_loss.average(), global_steps)
+    summary_writer.add_scalar('train_loss', ave_loss.average(), global_steps)
     writer_dict['train_global_steps'] = global_steps + 1
 
 
@@ -144,10 +144,10 @@ def validate(config, testloader, model, writer_dict):
 
         logging.info('{} {} {}'.format(i, IoU_array, mean_IoU))
 
-    writer = writer_dict['writer']
+    summary_writer = writer_dict['writer']
     global_steps = writer_dict['valid_global_steps']
-    writer.add_scalar('valid_loss', ave_loss.average(), global_steps)
-    writer.add_scalar('valid_mIoU', mean_IoU, global_steps)
+    summary_writer.add_scalar('valid_loss', ave_loss.average(), global_steps)
+    summary_writer.add_scalar('valid_mIoU', mean_IoU, global_steps)
     writer_dict['valid_global_steps'] = global_steps + 1
     return ave_loss.average(), mean_IoU, IoU_array
 
