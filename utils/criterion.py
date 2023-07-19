@@ -23,7 +23,7 @@ class CrossEntropy(nn.Module):
 
     def forward(self, score, target):
 
-        if config.MODEL.NUM_OUTPUTS == 1:
+        if config.MODEL.NUM_OUTPUTS == 1: # 2
             score = [score]
 
         balance_weights = config.LOSS.BALANCE_WEIGHTS
@@ -44,14 +44,14 @@ class CrossEntropy(nn.Module):
 class OhemCrossEntropy(nn.Module):
 
     def __init__(self,
-                 ignore_label=-1,
-                 thres=0.7,
-                 min_kept=100000,
-                 weight=None):
+                 ignore_label=-1, # 255
+                 thres=0.7, # 0.9
+                 min_kept=100000, # 131072
+                 weight=None): # [ 1.0023,0.9843, ]
         super(OhemCrossEntropy, self).__init__()
-        self.thresh = thres
-        self.min_kept = max(1, min_kept)
-        self.ignore_label = ignore_label
+        self.thresh = thres # 0.9
+        self.min_kept = max(1, min_kept) # 131072
+        self.ignore_label = ignore_label # 255
         # weight: [ 1.0023,0.9843, ]
         self.criterion = nn.CrossEntropyLoss(weight=weight,
                                              ignore_index=ignore_label,
@@ -85,12 +85,12 @@ class OhemCrossEntropy(nn.Module):
         """
         # (batch_size, height, width) -> (batch_size * height * width)
         pixel_losses = self.criterion(score, target).contiguous().view(-1)
-        mask = target.contiguous().view(-1) != self.ignore_label  # 정상적인 것만
+        mask = target.contiguous().view(-1) != self.ignore_label  # 정상적인 것만 (_,)
         # mask.shape : (batch_size * height * width)
 
-        ignore_deal_target = target.clone()  # (batch_size, height, width)
-        ignore_deal_target[ignore_deal_target == self.ignore_label] = 0
-        unsqueeze_ignore_deal_target = ignore_deal_target.unsqueeze(
+        ignore_removed_target = target.clone()  # (batch_size, height, width)
+        ignore_removed_target[ignore_removed_target == self.ignore_label] = 0
+        unsqueezed_ignore_removed_target = ignore_removed_target.unsqueeze(
             1)  # (batch_size, 1, height, width)
         pred = F.softmax(score, dim=1)  # (batch_size, 2,  height, width)
         """
@@ -99,21 +99,15 @@ pred 텐서에서 첫 번째 차원(인덱스 1)을 기준으로,
 즉, pred 텐서에서 unsqueeze_target에서 추출한 인덱스의 위치에 해당하는 값을 추출합니다.
         """
         # pred: (batch_size, height, width)
-        # unsqueeze_ignore_deal_target: (batch_size, 1, height, width)
-        pred = pred.gather(1, unsqueeze_ignore_deal_target)
+        # unsqueezed_ignore_removed_target: (batch_size, 1, height, width)
+        pred = pred.gather(1, unsqueezed_ignore_removed_target)
         # pred:  (batch_size, 1, height, width)
 
         pred, ind = pred.contiguous().view(-1,)[mask].contiguous().sort()
         # pred.shape : batch_size * height * width -> mask True인 것만 예측값이 큰 순서로 정렬
         # ind.shape : batch_size * height * width -> mask True인 것만 예측값이 큰 순서로 정렬
-        if len(pred) == 0:
-            print("here")
-            # check
-            # tensor(37.0625, device='cuda:0', grad_fn=<MeanBackward0>)
-            pixel_losses = pixel_losses[mask]
-            print("pixel_losses.mean(): ", pixel_losses.mean())
-            return pixel_losses.mean()
-        # check
+        if mask.sum() == 0:
+            return torch.tensor(0.).to(score.device)
         # min_kept: 131072
         min_value = pred[min(self.min_kept, pred.numel() - 1)]  # 여기까지
         # min_value: pred[min(맞춰야할 픽셀 수, 131072)]
@@ -128,6 +122,11 @@ pred 텐서에서 첫 번째 차원(인덱스 1)을 기준으로,
         """
         Args:
             scores:
+                [x_extra_p_output, x_output] :
+                    [(batch_size, 2, height, width), (batch_size, 2, height, width)]
+                x_output
+                    (batch_size, 2, height, width)
+
             target: [batch_size, height, width]
                 0, 1, 255 로만 이루어져 있음.
 
@@ -140,20 +139,25 @@ pred 텐서에서 첫 번째 차원(인덱스 1)을 기준으로,
 
         balance_weights = config.LOSS.BALANCE_WEIGHTS  # [0.4, 1.0]
         sb_weights = config.LOSS.SB_WEIGHTS  # 1.0
+        loss_version = 1
         if len(balance_weights) == len(scores):
+            # functions = [self._ce_forward, self._ohem_forward]
             functions = [self._ce_forward] * \
-                (len(balance_weights) - 1) + [self._ohem_forward]
-            return sum([
-                w * func(score, target)
-                for (w, score, func) in zip(balance_weights, scores, functions)
-            ])
-            # total_sum = 0
-            # for weight, score, func in zip(balance_weights, scores, functions):
-            #     # func: _ce_forward, _ohem_forward
-            #     a= func(score, target)
-            #     total_sum += weight * a
-            #
-            # return total_sum
+                        (len(balance_weights) - 1) + [self._ohem_forward]
+            if loss_version == 0:
+                return sum([
+                    w * func(score, target)
+                    for (w, score, func) in zip(balance_weights, scores, functions)
+                ])
+            else:
+                total_sum = 0
+                for idx, (weight, score, func) in enumerate(zip(balance_weights, scores, functions)):
+                    # func: _ce_forward, _ohem_forward
+                    a = func(score, target)
+                    if idx == 0:
+                        a = a.mean()
+                    total_sum += weight * a
+                return total_sum
         elif len(scores) == 1:
             return sb_weights * self._ohem_forward(scores[0], target)
 
@@ -185,10 +189,10 @@ def weighted_bce(bd_pre, target):
     return loss
 
 
-class BondaryLoss(nn.Module):
+class BoundaryLoss(nn.Module):
 
     def __init__(self, coeff_bce=20.0):
-        super(BondaryLoss, self).__init__()
+        super(BoundaryLoss, self).__init__()
         self.coeff_bce = coeff_bce
 
     def forward(self, bd_pre, bd_gt):
@@ -204,5 +208,5 @@ if __name__ == '__main__':
     a[:, 5, :] = 1
     pre = torch.randn(2, 1, 16, 16)
 
-    Loss_fc = BondaryLoss()
+    Loss_fc = BoundaryLoss()
     loss = Loss_fc(pre, a.to(torch.uint8))

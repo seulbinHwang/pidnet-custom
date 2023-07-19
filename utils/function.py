@@ -17,9 +17,20 @@ from utils.utils import get_confusion_matrix
 from utils.utils import adjust_learning_rate
 
 import platform
+from PIL import Image
 
 import torch
 
+def concatenate_two_images(sv_img: Image, image):
+    img = Image.fromarray(image)
+    img = img.resize((sv_img.width, sv_img.height))
+    img = Image.blend(img, sv_img, 0.5)
+    return Image.fromarray(np.hstack((np.array(img), np.array(sv_img))))
+
+color_map = [
+(152, 251, 152),  # terrain (nature) 지역
+(220, 20, 60),  # person
+]
 
 def get_torch_gpu_device(gpu_idx: int = 0) -> str:
     if IS_MAC:
@@ -39,18 +50,18 @@ else:
 
 
 def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
-          trainloader, optimizer, model, writer_dict):
+          trainloader, optimizer, full_model, writer_dict):
     """
 
     :param config:
     :param epoch:
     :param num_epoch:
-    :param epoch_iters:
+    :param epoch_iters: 1200 / batch_size
     :param base_lr:
     :param num_iters:
     :param trainloader: torch.utils.data.DataLoader
     :param optimizer:
-    :param model:
+    :param full_model:
     :param writer_dict:
         writer_dict = {
             'writer': SummaryWriter(logdir=tb_log_dir),
@@ -59,7 +70,7 @@ def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
     }
     """
     # Training
-    model.train()
+    full_model.train()
 
     batch_time = AverageMeter()
     ave_loss = AverageMeter()
@@ -74,16 +85,10 @@ def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
         """
 images: 
     [batch_size, num_channels, height, width]
-        batch_size: 배치 내에 있는 이미지의 개수.
-        num_channels: 이미지의 채널 수. RGB 이미지의 경우 3, 흑백 이미지의 경우 1.
-        height, width: 이미지의 높이와 너비.
-labels: 
-    [batch_size, height, width] 또는 [batch_size]
-        batch_size: 배치 내에 있는 레이블의 개수. 이 값은 images의 batch_size와 동일해야 합니다.
-        height, width: 레이블의 높이와 너비. 
-            이 값은 각 픽셀에 대한 레이블이 있는 경우에만 존재하며, 
-            그렇지 않으면 labels의 shape는 [batch_size]가 됩니다.
-bd_gts: 이 값의 shape는 추가적인 레이블 정보의 형태에 따라 달라집니다.
+labels:  [batch_size, height, width]
+    0, 1, 255 로만 이루어져 있음.
+bd_gts: [batch_size, height, width]
+    0, 1 로만 이루어져 있음.
         """
         images, labels, bd_gts, _, _ = batch
         if IS_MAC:
@@ -95,11 +100,11 @@ bd_gts: 이 값의 shape는 추가적인 레이블 정보의 형태에 따라 �
             labels = labels.long().cuda()
             bd_gts = bd_gts.float().cuda()
 
-        losses, _, acc, loss_list = model(images, labels, bd_gts)
+        losses, _, acc, loss_list = full_model(inputs=images, labels=labels, bd_gt=bd_gts)
         loss = losses.mean()
         acc = acc.mean()
 
-        model.zero_grad()
+        full_model.zero_grad()
         loss.backward()
         optimizer.step()
 
@@ -131,15 +136,15 @@ bd_gts: 이 값의 shape는 추가적인 레이블 정보의 형태에 따라 �
     writer_dict['train_global_steps'] = global_steps + 1
 
 
-def validate(config, testloader, model, writer_dict):
-    model.eval()
+def validate(config, testloader, full_model, writer_dict):
+    full_model.eval()
     ave_loss = AverageMeter()
-    nums = config.MODEL.NUM_OUTPUTS
+    nums = config.MODEL.NUM_OUTPUTS # 2
     confusion_matrix = np.zeros(
         (config.DATASET.NUM_CLASSES, config.DATASET.NUM_CLASSES, nums))
     with torch.no_grad():
         for idx, batch in enumerate(testloader):
-            image, label, bd_gts, _, _ = batch
+            image, label, bd_gts, _, name = batch
             size = label.size()
             if IS_MAC:
                 image = image.to(device)
@@ -150,10 +155,11 @@ def validate(config, testloader, model, writer_dict):
                 label = label.long().cuda()
                 bd_gts = bd_gts.float().cuda()
 
-            losses, pred, _, _ = model(image, label, bd_gts)
+            losses, pred, _, _ = full_model(image, label, bd_gts)
             if not isinstance(pred, (list, tuple)):
                 pred = [pred]
             for i, x in enumerate(pred):
+                print("i: ", i)
                 x = F.interpolate(input=x,
                                   size=size[-2:],
                                   mode='bilinear',
@@ -162,7 +168,22 @@ def validate(config, testloader, model, writer_dict):
                 confusion_matrix[..., i] += get_confusion_matrix(
                     label, x, size, config.DATASET.NUM_CLASSES,
                     config.TRAIN.IGNORE_LABEL)
-
+                if i == 1:
+                    print('yaho')
+                    pred2 = torch.argmax(pred, dim=1).squeeze(0).cpu().numpy()
+                    for i, color in enumerate(color_map):
+                        for j in range(3):
+                            # 9 잔디
+                            #
+                            # if i not in [9, 11]:
+                            #     continue
+                            sv_img[:, :, j][pred2 == i] = color[j]
+                    sv_img = Image.fromarray(sv_img)
+                    sv_img = concatenate_two_images(sv_img, image)
+                    sv_path = os.path.join(config.ROOT, 'val')
+                    if not os.path.exists(sv_path):
+                        os.mkdir(sv_path)
+                    sv_img.save(sv_path + name)
             if idx % 10 == 0:
                 print(idx)
 

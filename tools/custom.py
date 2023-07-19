@@ -125,12 +125,9 @@ if __name__ == '__main__':
     model = load_pretrained(model, args.p).cpu()
     model.eval()
     with torch.no_grad():
-        print("images_list:", images_list)
         for img_path in images_list:
             # print("img_path:", img_path)
-            print("--------------")
             img_name = img_path.split("/")[-1]
-            print("img_name:", img_name)
             img = cv2.imread(os.path.join(args.r, args.sub, img_name),
                              cv2.IMREAD_COLOR)
             # img = cv2.resize(img, (720, 960), interpolation=cv2.INTER_LINEAR)

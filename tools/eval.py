@@ -26,6 +26,7 @@ import platform
 
 import torch
 
+
 def get_torch_gpu_device(gpu_idx: int = 0) -> str:
     if IS_MAC:
         assert torch.backends.mps.is_available()
@@ -35,11 +36,13 @@ def get_torch_gpu_device(gpu_idx: int = 0) -> str:
         device = f"cuda:{gpu_idx}"
     return device
 
+
 if platform.system() == "Darwin" and platform.uname().processor == "arm":
     IS_MAC = True
     device = get_torch_gpu_device()
 else:
     IS_MAC = False
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train segmentation network')
@@ -86,7 +89,8 @@ def main():
 
     logger.info('=> loading model from {}'.format(model_state_file))
 
-    pretrained_dict = torch.load(model_state_file, map_location=torch.device('cpu') )
+    pretrained_dict = torch.load(model_state_file,
+                                 map_location=torch.device('cpu'))
     if 'state_dict' in pretrained_dict:
         pretrained_dict = pretrained_dict['state_dict']
     model_dict = model.state_dict()

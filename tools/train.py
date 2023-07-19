@@ -22,8 +22,8 @@ import models
 import datasets
 from configs import config
 from configs import update_config
-from utils.criterion import CrossEntropy, OhemCrossEntropy, BondaryLoss
-from utils.function import train, validate
+from utils.criterion import CrossEntropy, OhemCrossEntropy, BoundaryLoss
+from utils import function
 from utils.utils import create_logger, FullModel
 
 import platform
@@ -109,14 +109,13 @@ def main():
         torch.manual_seed(args.seed)
     """
     final_output_dir: 
-        "output/cityscapes/pidnet_small_cityscapes"
+        "output/cityscapes/pidnet_large_cityscapes"
     tb_log_dir:
-        "log/cityscapes/pidnet_small/configs/cityscapes/pidnet_small_cityscapes_{time}"
+        "log/cityscapes/pidnet_large/pidnet_large_cityscapes_2023-07-19-23-01"
     """
     logger, final_output_dir, tb_log_dir = create_logger(cfg=config,
                                                          cfg_name=args.cfg,
                                                          phase='train')
-
     logger.info(pprint.pformat(args))
     logger.info(config)
     """
@@ -157,6 +156,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             return 0
 
     imgnet = 'imagenet' in config.MODEL.PRETRAINED
+    # PIDNet
     model = models.pidnet.get_seg_model(config, imgnet_pretrained=imgnet)
 
     ###################
@@ -187,11 +187,12 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     crop_size: (1024, 1024) / (720, 960)
     SCALE_FACTOR: 16
     """
+    # 1024, 1024
     crop_size = (config.TRAIN.IMAGE_SIZE[1], config.TRAIN.IMAGE_SIZE[0])
     train_dataset = eval('datasets.' + config.DATASET.DATASET)(
         root=config.DATASET.ROOT,  # data/
         list_path=config.DATASET.TRAIN_SET,  # list/cityscapes/train.lst
-        num_classes=config.DATASET.NUM_CLASSES,  # 19
+        num_classes=config.DATASET.NUM_CLASSES,  # 2
         multi_scale=config.TRAIN.MULTI_SCALE,  # True
         flip=config.TRAIN.FLIP,  # True
         ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
@@ -232,47 +233,50 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         num_workers=num_workers,  # 6
         pin_memory=pin_memory,
         drop_last=True)
-
+    # 1024, 2048
     test_size = (config.TEST.IMAGE_SIZE[1], config.TEST.IMAGE_SIZE[0])
+    # cityscapes
     test_dataset = eval('datasets.' + config.DATASET.DATASET)(
-        root=config.DATASET.ROOT,
-        list_path=config.DATASET.TEST_SET,
-        num_classes=config.DATASET.NUM_CLASSES,
+        root=config.DATASET.ROOT,  # data/
+        list_path=config.DATASET.TEST_SET,  # list/cityscapes/val.lst
+        num_classes=config.DATASET.NUM_CLASSES,  # 2
         multi_scale=False,
         flip=False,
-        ignore_label=config.TRAIN.IGNORE_LABEL,
-        base_size=config.TEST.BASE_SIZE,
-        crop_size=test_size)
+        ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+        base_size=config.TEST.BASE_SIZE,  # 2048
+        crop_size=test_size)  # (1024, 2048)
 
     testloader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=config.TEST.BATCH_SIZE_PER_GPU * len(gpus),
+        batch_size=config.TEST.BATCH_SIZE_PER_GPU * len(gpus),  # 6
         shuffle=False,
-        num_workers=config.WORKERS,
+        num_workers=num_workers,
         pin_memory=False)
 
     # criterion
     # True
     if config.LOSS.USE_OHEM:
-        sem_criterion = OhemCrossEntropy(ignore_label=config.TRAIN.IGNORE_LABEL,
-                                         thres=config.LOSS.OHEMTHRES,
-                                         min_kept=config.LOSS.OHEMKEEP,
-                                         weight=train_dataset.class_weights)
+        sem_criterion = OhemCrossEntropy(
+            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+            thres=config.LOSS.OHEMTHRES,  # 0.9
+            min_kept=config.LOSS.OHEMKEEP,  # 131072
+            weight=train_dataset.class_weights)  # [ 1.0023,0.9843, ]
     else:
-        sem_criterion = CrossEntropy(ignore_label=config.TRAIN.IGNORE_LABEL,
-                                     weight=train_dataset.class_weights)
+        sem_criterion = CrossEntropy(
+            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+            weight=train_dataset.class_weights)  # [ 1.0023,0.9843, ]
 
-    bd_criterion = BondaryLoss()
+    bd_criterion = BoundaryLoss()
 
-    model = FullModel(model, sem_criterion, bd_criterion)
+    full_model = FullModel(model, sem_loss=sem_criterion, bd_loss=bd_criterion)
     if IS_MAC:
-        model = model.to(device)
+        full_model = nn.DataParallel(full_model).to(device)
     else:
-        model = nn.DataParallel(model, device_ids=gpus).cuda()
+        full_model = nn.DataParallel(full_model, device_ids=gpus).cuda()
 
     # optimizer
     if config.TRAIN.OPTIMIZER == 'sgd':
-        params_dict = dict(model.named_parameters())
+        params_dict = dict(full_model.named_parameters())
         params = [{'params': list(params_dict.values()), 'lr': config.TRAIN.LR}]
 
         optimizer = torch.optim.SGD(
@@ -304,7 +308,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             last_epoch = checkpoint['epoch']
             dct = checkpoint['state_dict']
 
-            model.module.model.load_state_dict({
+            full_model.module.model.load_state_dict({
                 k.replace('model.', ''): v
                 for k, v in dct.items()
                 if k.startswith('model.')
@@ -350,7 +354,8 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         """
         num_epoch = config.TRAIN.END_EPOCH  # 484
         base_lr = config.TRAIN.LR  # 0.01
-        train(
+        print("ga")
+        function.train(
             config,
             epoch,
             num_epoch,  # 484
@@ -359,14 +364,16 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             num_iters,  # num_epoch(484) * epoch_iters(200) = 96800
             trainloader,  # torch.utils.data.DataLoader
             optimizer,  # torch.optim.SGD
-            model,
+            full_model,
             writer_dict)
-
+        print("na")
+        flag_rm= 1
         if flag_rm == 1 or (epoch % 5 == 0 and
                             epoch < real_end - 100) or (epoch
                                                         >= real_end - 100):
-            valid_loss, mean_IoU, IoU_array = validate(config, testloader,
-                                                       model, writer_dict)
+            print("jere")
+            valid_loss, mean_IoU, IoU_array = function.validate(
+                config, testloader, full_model, writer_dict)
         if flag_rm == 1:
             flag_rm = 0
 
@@ -376,19 +383,19 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             {
                 'epoch': epoch + 1,
                 'best_mIoU': best_mIoU,
-                'state_dict': model.module.state_dict(),
+                'state_dict': full_model.module.state_dict(),
                 'optimizer': optimizer.state_dict(),
             }, os.path.join(final_output_dir, 'checkpoint.pth.tar'))
         if mean_IoU > best_mIoU:
             best_mIoU = mean_IoU
-            torch.save(model.module.state_dict(),
+            torch.save(full_model.module.state_dict(),
                        os.path.join(final_output_dir, 'best.pt'))
         msg = 'Loss: {:.3f}, MeanIU: {: 4.4f}, Best_mIoU: {: 4.4f}'.format(
             valid_loss, mean_IoU, best_mIoU)
         logging.info(msg)
         logging.info(IoU_array)
 
-    torch.save(model.module.state_dict(),
+    torch.save(full_model.module.state_dict(),
                os.path.join(final_output_dir, 'final_state.pt'))
 
     writer_dict['writer'].close()

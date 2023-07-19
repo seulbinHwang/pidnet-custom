@@ -14,6 +14,7 @@ import platform
 
 import torch
 
+
 def get_torch_gpu_device(gpu_idx: int = 0) -> str:
     if IS_MAC:
         assert torch.backends.mps.is_available()
@@ -23,29 +24,38 @@ def get_torch_gpu_device(gpu_idx: int = 0) -> str:
         device = f"cuda:{gpu_idx}"
     return device
 
+
 if platform.system() == "Darwin" and platform.uname().processor == "arm":
     IS_MAC = True
     device = get_torch_gpu_device()
 else:
     IS_MAC = False
 
+
 class Cityscapes(BaseDataset):
-    def __init__(self, 
-                 root, 
+
+    def __init__(self,
+                 root,
                  list_path,
                  num_classes=19,
-                 multi_scale=True, 
-                 flip=True, 
-                 ignore_label=255, 
-                 base_size=2048, 
+                 multi_scale=True,
+                 flip=True,
+                 ignore_label=255,
+                 base_size=2048,
                  crop_size=(512, 1024),
                  scale_factor=16,
-                 mean=[0.485, 0.456, 0.406], 
+                 mean=[0.485, 0.456, 0.406],
                  std=[0.229, 0.224, 0.225],
                  bd_dilate_size=4):
 
-        super(Cityscapes, self).__init__(ignore_label, base_size,
-                crop_size, scale_factor, mean, std,)
+        super(Cityscapes, self).__init__(
+            ignore_label,
+            base_size,
+            crop_size,
+            scale_factor,
+            mean,
+            std,
+        )
 
         self.root = root
         # 'list/cityscapes/train.lst'
@@ -57,9 +67,11 @@ class Cityscapes(BaseDataset):
         # data/list/cityscapes/train.lst
         # 예시: leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
         # gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png
-        self.img_list = [line.strip().split() for line in open(root+list_path)]
+        self.img_list = [
+            line.strip().split() for line in open(root + list_path)
+        ]
         # List[Dict[str, str]] # img, label, name
-        self.files = self.read_files()
+        self.files: List[Dict[str, str]] = self.read_files()
         # check
         self.label_mapping = {
             -1: ignore_label,  #
@@ -100,12 +112,18 @@ class Cityscapes(BaseDataset):
         }
         if IS_MAC:
             # check
-            self.class_weights = torch.FloatTensor([ 1.0023,0.9843, ]).to(device=device)
+            self.class_weights = torch.FloatTensor([
+                1.0023,
+                0.9843,
+            ]).to(device=device)
         else:
-            self.class_weights = torch.FloatTensor([ 1.0023,0.9843,]).cuda()
-        
+            self.class_weights = torch.FloatTensor([
+                1.0023,
+                0.9843,
+            ]).cuda()
+
         self.bd_dilate_size = bd_dilate_size
-    
+
     def read_files(self) -> List[Dict[str, str]]:
         files = []
         if 'test' in self.list_path:
@@ -132,7 +150,7 @@ class Cityscapes(BaseDataset):
                     "name": name
                 })
         return files
-        
+
     def convert_label(self, label, inverse=False):
         temp = label.copy()
         if inverse:
@@ -144,8 +162,9 @@ class Cityscapes(BaseDataset):
                 label[temp == k] = v
         return label
 
-    def __getitem__(self, index) -> Tuple[np.ndarray, np.ndarray, np.ndarray,
-                      np.ndarray, str]:
+    def __getitem__(
+            self, index
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, str]:
         """
         Args:
             index:
@@ -159,37 +178,35 @@ class Cityscapes(BaseDataset):
         """
 
         item = self.files[index]
-        name = item["name"] # aachen_000000_000019_gtFine_labelIds
-        image = cv2.imread(os.path.join(self.root,'cityscapes',item["img"]),
+        name = item["name"]  # aachen_000000_000019_gtFine_labelIds
+        image = cv2.imread(os.path.join(self.root, 'cityscapes', item["img"]),
                            cv2.IMREAD_COLOR)
-        size = image.shape
+        size = image.shape  # (H, w, 3)
 
         if 'test' in self.list_path:
-            image = self.input_transform(image)
-            image = image.transpose((2, 0, 1))
+            image = self.input_transform(image)  # (H, w, 3)
+            image = image.transpose((2, 0, 1))  # (3, H, w)
             return image.copy(), np.array(size), name
         # label: gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png
-        label = cv2.imread(os.path.join(self.root,'cityscapes',item["label"]),
+        label = cv2.imread(os.path.join(self.root, 'cityscapes', item["label"]),
                            cv2.IMREAD_GRAYSCALE)
         # (1024, 2048)
         label = self.convert_label(label)
 
-        image, label, edge = self.gen_sample(image, label,
-                                self.multi_scale, self.flip, edge_size=self.bd_dilate_size)
+        image, label, edge = self.gen_sample(image,
+                                             label,
+                                             self.multi_scale,
+                                             self.flip,
+                                             edge_size=self.bd_dilate_size)
         return image.copy(), label.copy(), edge.copy(), np.array(size), name
 
-    
     def single_scale_inference(self, config, model, image):
         pred = self.inference(config, model, image)
         return pred
-
 
     def save_pred(self, preds, sv_path, name):
         preds = np.asarray(np.argmax(preds.cpu(), axis=1), dtype=np.uint8)
         for i in range(preds.shape[0]):
             pred = self.convert_label(preds[i], inverse=True)
             save_img = Image.fromarray(pred)
-            save_img.save(os.path.join(sv_path, name[i]+'.png'))
-
-        
-        
+            save_img.save(os.path.join(sv_path, name[i] + '.png'))

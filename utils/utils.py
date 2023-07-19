@@ -10,6 +10,7 @@ import os
 import logging
 import time
 from pathlib import Path
+from typing import Tuple
 
 import numpy as np
 
@@ -24,8 +25,8 @@ class FullModel(nn.Module):
     def __init__(self, model, sem_loss, bd_loss):
         super(FullModel, self).__init__()
         self.model = model  # PIDNet
-        self.sem_loss = sem_loss
-        self.bd_loss = bd_loss
+        self.sem_loss = sem_loss # OhemCrossEntropy
+        self.bd_loss = bd_loss # BoundaryLoss
 
     def pixel_acc(self, pred, label):
         """
@@ -54,11 +55,10 @@ class FullModel(nn.Module):
                 0, 1, 255 로만 이루어져 있음.
             bd_gt: [batch_size, height, width]
                 0, 1 로만 이루어져 있음.
-            *args:
-            **kwargs:
 
         Returns:
-
+            pixel_losses = pixel_losses[mask]
+            print("pixel_losses.mean(): ", pixel_losses.mean())
         """
         # inputs: [batch_size, 3, height, width]
         # network_outputs: [batch_size, num_classes, height//8, width//8]
@@ -72,32 +72,27 @@ class FullModel(nn.Module):
                     size=(h, w),
                     mode='bilinear',
                     align_corners=config.MODEL.ALIGN_CORNERS)
-        x_extra_p_output = network_outputs[0]  # (batch_size, 2, 1024, 1024)
-        x_output = network_outputs[1]  # (batch_size, 2, 1024, 1024)
-        x_extra_d_output = network_outputs[2]  # (batch_size, 1, 1024, 1024)
+        x_extra_p_output = network_outputs[0]  # (batch_size, 2, height, width)
+        x_output = network_outputs[1]  # (batch_size, 2, height, width)
+        x_extra_d_output = network_outputs[2]  # (batch_size, 1, height, width)
         # S-loss (extra semantic loss) (P network)
         # 0, 1, 255를 잘 맞추도록
         acc = self.pixel_acc(pred=x_extra_p_output, label=labels)
-        #
-        loss_s = self.sem_loss([x_extra_p_output, x_output],
-                               labels)  # OhemCrossEntropy
+        loss_s = self.sem_loss(scores=[x_extra_p_output, x_output],
+                               target=labels)  # OhemCrossEntropy
         # B-loss (boundary binary cross entropy loss) (D network)
-        loss_b = self.bd_loss(x_extra_d_output, bd_gt)  # BondaryLoss
+        loss_b = self.bd_loss(x_extra_d_output, bd_gt)  # BoundaryLoss
 
         filler = torch.ones_like(labels) * config.TRAIN.IGNORE_LABEL
         bd_label = torch.where(
             F.sigmoid(x_extra_d_output[:, 0, :, :]) > 0.8, labels, filler)
-        loss_sb = self.sem_loss(network_outputs[-2],
-                                bd_label)  # OhemCrossEntropy
-        loss = loss_s + loss_b + loss_sb
-
-        return torch.unsqueeze(loss,
-                               0), network_outputs[:-1], acc, [loss_s, loss_b]
+        loss_sb = self.sem_loss(x_output, bd_label)  # OhemCrossEntropy
+        loss = torch.unsqueeze(loss_s + loss_b + loss_sb, 0)
+        return loss, network_outputs[:-1], acc, [loss_s, loss_b]
 
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
-
     def __init__(self):
         self.initialized = False
         self.val = None
@@ -131,7 +126,20 @@ class AverageMeter(object):
         return self.avg
 
 
-def create_logger(cfg, cfg_name, phase='train'):
+def create_logger(cfg, cfg_name: str, phase='train') -> Tuple[logging.Logger, str, str]:
+    """
+
+    Args:
+        cfg: config
+        cfg_name: configs/cityscapes/pidnet_large_cityscapes.yaml
+        phase: train or val
+
+    Returns:
+        logger
+        final_output_dir: output/cityscapes/pidnet_large_cityscapes
+        tensorboard_log_dir:
+            log/cityscapes/pidnet_large_cityscapes/pidnet_large_cityscapes_time
+    """
     # from pathlib import Path
     root_output_dir = Path(cfg.OUTPUT_DIR)  # "output"
     # set up logger
@@ -140,11 +148,10 @@ def create_logger(cfg, cfg_name, phase='train'):
         root_output_dir.mkdir()
 
     dataset = cfg.DATASET.DATASET  # cityscapes
-    model = cfg.MODEL.NAME  # pidnet_small
-    # configs/cityscapes/pidnet_small_cityscapes
+    model = cfg.MODEL.NAME  # pidnet_large
+    # cfg_name = pidnet_large_cityscapes
     cfg_name = os.path.basename(cfg_name).split('.')[0]
-
-    # output/cityscapes/pidnet_small_cityscapes
+    # output/cityscapes/pidnet_large_cityscapes
     final_output_dir = root_output_dir / dataset / cfg_name
 
     print('=> creating {}'.format(final_output_dir))

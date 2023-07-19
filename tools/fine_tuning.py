@@ -22,9 +22,7 @@ import models
 import datasets
 from configs import config
 from configs import update_config
-from utils.criterion import CrossEntropy, OhemCrossEntropy, BondaryLoss
-from utils.function import train, validate
-from utils.utils import create_logger, FullModel
+from utils.utils import create_logger
 
 
 def parse_args():
