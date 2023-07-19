@@ -134,6 +134,7 @@ class PIDNet(nn.Module):
         return layer
 
     def forward(self, x):
+        # x: [batch_size, 3, height, width]
         width_output = x.shape[-1] // 8
         height_output = x.shape[-2] // 8
 
@@ -236,7 +237,7 @@ if __name__ == '__main__':
     model.eval()
     model.to(device)
     iterations = None
-    
+
     input = torch.randn(1, 3, 1024, 2048).cuda()
     with torch.no_grad():
         for _ in range(10):

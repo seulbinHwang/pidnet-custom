@@ -4,7 +4,7 @@ import numpy as np
 
 ignore_label = 255
 label_mapping = {
-    -1: ignore_label, #
+    -1: ignore_label,  #
     0: ignore_label,
     1: ignore_label,
     2: ignore_label,
@@ -12,33 +12,33 @@ label_mapping = {
     4: ignore_label,
     5: ignore_label,
     6: ignore_label,
-    7: 0, # road
-    8: 1, # sidewalk
+    7: 0,  # road
+    8: 1,  # sidewalk
     9: ignore_label,
     10: ignore_label,
-    11: 2, # building
-    12: 3, # wall
-    13: 4, # fence
+    11: 2,  # building
+    12: 3,  # wall
+    13: 4,  # fence
     14: ignore_label,
     15: ignore_label,
     16: ignore_label,
-    17: 5,# pole
+    17: 5,  # pole
     18: ignore_label,
-    19: 6, # traffic light
-    20: 7, # traffic sign
-    21: 8, # vegetation
-    22: 9, # terrain
-    23: 10, # sky
-    24: 11, # person
-    25: 12, # rider
-    26: 13, # car
-    27: 14, # truck
-    28: 15, # bus
+    19: 6,  # traffic light
+    20: 7,  # traffic sign
+    21: 8,  # vegetation
+    22: 9,  # terrain
+    23: 10,  # sky
+    24: 11,  # person
+    25: 12,  # rider
+    26: 13,  # car
+    27: 14,  # truck
+    28: 15,  # bus
     29: ignore_label,
     30: ignore_label,
-    31: 16, # train
-    32: 17, # motorcycle
-    33: 18 # bicycle /
+    31: 16,  # train
+    32: 17,  # motorcycle
+    33: 18  # bicycle /
 }
 
 

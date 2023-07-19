@@ -26,15 +26,36 @@ from utils.criterion import CrossEntropy, OhemCrossEntropy, BondaryLoss
 from utils.function import train, validate
 from utils.utils import create_logger, FullModel
 
+import platform
+
+import torch
+
+
+def get_torch_gpu_device(gpu_idx: int = 0) -> str:
+    if IS_MAC:
+        assert torch.backends.mps.is_available()
+        device = f"mps:{gpu_idx}"
+    else:
+        assert torch.cuda.is_available()
+        device = f"cuda:{gpu_idx}"
+    return device
+
+
+if platform.system() == "Darwin" and platform.uname().processor == "arm":
+    IS_MAC = True
+    device = get_torch_gpu_device()
+else:
+    IS_MAC = False
+
 
 def parse_args():
-    # python tools/train.py --cfg configs/cityscapes/pidnet_small_cityscapes.yaml GPUS (0,1) TRAIN.BATCH_SIZE_PER_GPU 6
+    # python tools/train.py --cfg configs/cityscapes/pidnet_small_cityscapes.yaml GPUS "(0,)" TRAIN.BATCH_SIZE_PER_GPU 6
     parser = argparse.ArgumentParser(description='Train segmentation network')
 
     parser.add_argument(
         '--cfg',
         help='experiment configure file name',
-        default="configs/cityscapes/pidnet_small_cityscapes.yaml",
+        default="configs/cityscapes/pidnet_large_cityscapes.yaml",
         type=str)
     parser.add_argument('--seed', type=int, default=304)
     parser.add_argument('--fine_tune', type=bool, default=False)
@@ -127,11 +148,14 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     cudnn.benchmark = config.CUDNN.BENCHMARK
     cudnn.deterministic = config.CUDNN.DETERMINISTIC
     cudnn.enabled = config.CUDNN.ENABLED
-    gpus = list(config.GPUS)
-    if torch.cuda.device_count() != len(gpus):
-        print("The gpu numbers do not match!")
-        return 0
-    
+    if IS_MAC:
+        gpus = [0]
+    else:
+        gpus = list(config.GPUS)
+        if torch.cuda.device_count() != len(gpus):
+            print("The gpu numbers do not match!")
+            return 0
+
     imgnet = 'imagenet' in config.MODEL.PRETRAINED
     model = models.pidnet.get_seg_model(config, imgnet_pretrained=imgnet)
 
@@ -195,12 +219,18 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             True로 설정하면 마지막 배치가 작을 때 해당 배치를 버립니다.
     """
     # batch_size: 6 * 1
+    if IS_MAC:
+        num_workers = 0
+        pin_memory = True
+    else:
+        num_workers = config.WORKERS
+        pin_memory = False
     trainloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,  # 6* 1
         shuffle=config.TRAIN.SHUFFLE,  # True
-        num_workers=config.WORKERS,  # 6
-        pin_memory=False,
+        num_workers=num_workers,  # 6
+        pin_memory=pin_memory,
         drop_last=True)
 
     test_size = (config.TEST.IMAGE_SIZE[1], config.TEST.IMAGE_SIZE[0])
@@ -235,7 +265,10 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     bd_criterion = BondaryLoss()
 
     model = FullModel(model, sem_criterion, bd_criterion)
-    model = nn.DataParallel(model, device_ids=gpus).cuda()
+    if IS_MAC:
+        model = model.to(device)
+    else:
+        model = nn.DataParallel(model, device_ids=gpus).cuda()
 
     # optimizer
     if config.TRAIN.OPTIMIZER == 'sgd':
@@ -362,6 +395,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     end = timeit.default_timer()
     logger.info('Hours: %d' % np.int((end - start) / 3600))
     logger.info('Done')
+
 
 # python tools/train.py --cfg configs/cityscapes/pidnet_large_cityscapes.yaml TRAIN.BATCH_SIZE_PER_GPU 6
 if __name__ == '__main__':

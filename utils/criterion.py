@@ -52,53 +52,110 @@ class OhemCrossEntropy(nn.Module):
         self.thresh = thres
         self.min_kept = max(1, min_kept)
         self.ignore_label = ignore_label
+        # weight: [ 1.0023,0.9843, ]
         self.criterion = nn.CrossEntropyLoss(weight=weight,
                                              ignore_index=ignore_label,
                                              reduction='none')
 
     def _ce_forward(self, score, target):
+        """
+
+        Args:
+            score: (batch_size, 2, height, width)
+            target: (batch_size, height, width)
+
+        Returns:
+            loss: (batch_size, height, width)
+
+        """
 
         loss = self.criterion(score, target)
-
         return loss
 
     def _ohem_forward(self, score, target, **kwargs):
+        """
+        Args:
+            score: (batch_size, 2, height, width)
+            target: (batch_size, height, width)
+                0, 1, 255 로만 이루어져 있음.
+            **kwargs:
 
-        pred = F.softmax(score, dim=1) # [3, 2, 1024, 1024]
+        Returns:
+
+        """
+        # (batch_size, height, width) -> (batch_size * height * width)
         pixel_losses = self.criterion(score, target).contiguous().view(-1)
-        mask = target.contiguous().view(-1) != self.ignore_label
+        mask = target.contiguous().view(-1) != self.ignore_label  # 정상적인 것만
+        # mask.shape : (batch_size * height * width)
 
-        tmp_target = target.clone()
-        tmp_target[tmp_target == self.ignore_label] = 0
-        pred = pred.gather(1, tmp_target.unsqueeze(1))
+        ignore_deal_target = target.clone()  # (batch_size, height, width)
+        ignore_deal_target[ignore_deal_target == self.ignore_label] = 0
+        unsqueeze_ignore_deal_target = ignore_deal_target.unsqueeze(
+            1)  # (batch_size, 1, height, width)
+        pred = F.softmax(score, dim=1)  # (batch_size, 2,  height, width)
+        """
+pred 텐서에서 첫 번째 차원(인덱스 1)을 기준으로, 
+    unsqueeze_target에서 추출한 인덱스에 해당하는 값을 가져옵니다.
+즉, pred 텐서에서 unsqueeze_target에서 추출한 인덱스의 위치에 해당하는 값을 추출합니다.
+        """
+        # pred: (batch_size, height, width)
+        # unsqueeze_ignore_deal_target: (batch_size, 1, height, width)
+        pred = pred.gather(1, unsqueeze_ignore_deal_target)
+        # pred:  (batch_size, 1, height, width)
+
         pred, ind = pred.contiguous().view(-1,)[mask].contiguous().sort()
+        # pred.shape : batch_size * height * width -> mask True인 것만 예측값이 큰 순서로 정렬
+        # ind.shape : batch_size * height * width -> mask True인 것만 예측값이 큰 순서로 정렬
         if len(pred) == 0:
+            print("here")
+            # check
             # tensor(37.0625, device='cuda:0', grad_fn=<MeanBackward0>)
+            pixel_losses = pixel_losses[mask]
+            print("pixel_losses.mean(): ", pixel_losses.mean())
             return pixel_losses.mean()
-        min_value = pred[min(self.min_kept, pred.numel() - 1)] #
+        # check
+        # min_kept: 131072
+        min_value = pred[min(self.min_kept, pred.numel() - 1)]  # 여기까지
+        # min_value: pred[min(맞춰야할 픽셀 수, 131072)]
+        # self.thresh: 0.9
         threshold = max(min_value, self.thresh)
 
         pixel_losses = pixel_losses[mask][ind]
         pixel_losses = pixel_losses[pred < threshold]
         return pixel_losses.mean()
 
-    def forward(self, score, target):
+    def forward(self, scores, target):
+        """
+        Args:
+            scores:
+            target: [batch_size, height, width]
+                0, 1, 255 로만 이루어져 있음.
 
-        if not (isinstance(score, list) or isinstance(score, tuple)):
-            score = [score]
+        Returns:
+            total_sum: (batch_size, height, width)
+        """
 
-        balance_weights = config.LOSS.BALANCE_WEIGHTS
-        sb_weights = config.LOSS.SB_WEIGHTS
-        if len(balance_weights) == len(score):
+        if not (isinstance(scores, list) or isinstance(scores, tuple)):
+            scores = [scores]
+
+        balance_weights = config.LOSS.BALANCE_WEIGHTS  # [0.4, 1.0]
+        sb_weights = config.LOSS.SB_WEIGHTS  # 1.0
+        if len(balance_weights) == len(scores):
             functions = [self._ce_forward] * \
                 (len(balance_weights) - 1) + [self._ohem_forward]
             return sum([
-                w * func(x, target)
-                for (w, x, func) in zip(balance_weights, score, functions)
+                w * func(score, target)
+                for (w, score, func) in zip(balance_weights, scores, functions)
             ])
-
-        elif len(score) == 1:
-            return sb_weights * self._ohem_forward(score[0], target)
+            # total_sum = 0
+            # for weight, score, func in zip(balance_weights, scores, functions):
+            #     # func: _ce_forward, _ohem_forward
+            #     a= func(score, target)
+            #     total_sum += weight * a
+            #
+            # return total_sum
+        elif len(scores) == 1:
+            return sb_weights * self._ohem_forward(scores[0], target)
 
         else:
             raise ValueError(

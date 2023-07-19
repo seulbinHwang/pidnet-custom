@@ -6,6 +6,7 @@ import glob
 import argparse
 import datetime
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Custom Input')
 
@@ -27,7 +28,10 @@ def parse_args():
                         default='./samples/',
                         type=str)
     # resized_data
-    parser.add_argument('--sub', help='sub', default='resized_data_from_video', type=str)
+    parser.add_argument('--sub',
+                        help='sub',
+                        default='resized_data_from_video',
+                        type=str)
     parser.add_argument('--t',
                         help='the format of input images (.jpg, .png, ...)',
                         default='.jpg',
@@ -70,8 +74,12 @@ if __name__ == '__main__':
         output_gray = cv2.cvtColor(output, cv2.COLOR_BGR2GRAY)
 
         # Apply Hough line transformation
-        lines = cv2.HoughLinesP(output_gray, 1, np.pi / 180, 100,
-                                minLineLength=100, maxLineGap=10)
+        lines = cv2.HoughLinesP(output_gray,
+                                1,
+                                np.pi / 180,
+                                100,
+                                minLineLength=100,
+                                maxLineGap=10)
 
         # Draw the lines on the original image
         for line in lines:
@@ -84,7 +92,7 @@ if __name__ == '__main__':
         if not os.path.exists(sv_path):
             os.mkdir(sv_path)
         # Save the result image
-        cv2.imwrite(sv_path+img_name, img_rgb)
+        cv2.imwrite(sv_path + img_name, img_rgb)
 
         # # Convert color to RGB (from BGR)
         # res_rgb = cv2.cvtColor(res, cv2.COLOR_BGR2RGB)
@@ -99,4 +107,3 @@ if __name__ == '__main__':
         # plt.imshow(res_rgb)
         # plt.show()
         #
-

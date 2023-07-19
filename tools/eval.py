@@ -22,7 +22,24 @@ from configs import config
 from configs import update_config
 from utils.function import testval, test
 from utils.utils import create_logger
+import platform
 
+import torch
+
+def get_torch_gpu_device(gpu_idx: int = 0) -> str:
+    if IS_MAC:
+        assert torch.backends.mps.is_available()
+        device = f"mps:{gpu_idx}"
+    else:
+        assert torch.cuda.is_available()
+        device = f"cuda:{gpu_idx}"
+    return device
+
+if platform.system() == "Darwin" and platform.uname().processor == "arm":
+    IS_MAC = True
+    device = get_torch_gpu_device()
+else:
+    IS_MAC = False
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train segmentation network')
@@ -30,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '--cfg',
         help='experiment configure file name',
-        default="experiments/cityscapes/pidnet_small_cityscapes.yaml",
+        default="configs/cityscapes/pidnet_large_cityscapes.yaml",
         type=str)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
@@ -44,6 +61,8 @@ def parse_args():
 
 
 def main():
+    # python tools/eval.py --cfg configs/cityscapes/pidnet_large_cityscapes.yaml \
+    #                           TEST.MODEL_FILE pretrained_models/cityscapes/PIDNet_S_Cityscapes_val.pt
     args = parse_args()
 
     logger, final_output_dir, _ = create_logger(config, args.cfg, 'test')
@@ -62,11 +81,12 @@ def main():
     if config.TEST.MODEL_FILE:
         model_state_file = config.TEST.MODEL_FILE
     else:
+        print("final_output_dir:", final_output_dir)
         model_state_file = os.path.join(final_output_dir, 'best.pt')
 
     logger.info('=> loading model from {}'.format(model_state_file))
 
-    pretrained_dict = torch.load(model_state_file)
+    pretrained_dict = torch.load(model_state_file, map_location=torch.device('cpu') )
     if 'state_dict' in pretrained_dict:
         pretrained_dict = pretrained_dict['state_dict']
     model_dict = model.state_dict()
@@ -79,8 +99,10 @@ def main():
         logger.info('=> loading {} from pretrained model'.format(k))
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict)
-
-    model = model.cuda()
+    if IS_MAC:
+        model = model.to(device)
+    else:
+        model = model.cuda()
 
     # prepare data
     test_size = (config.TEST.IMAGE_SIZE[1], config.TEST.IMAGE_SIZE[0])

@@ -14,36 +14,38 @@ from people_segmentation.pre_trained_models import create_model
 
 
 def parse_args():
-  parser = argparse.ArgumentParser(description='Custom Input')
+    parser = argparse.ArgumentParser(description='Custom Input')
 
-  parser.add_argument('--a',
-                      help='pidnet-s, pidnet-m or pidnet-l',
-                      default='pidnet-l',
-                      type=str)
-  parser.add_argument('--c',
-                      help='cityscapes pretrained or not',
-                      type=bool,
-                      default=True)
-  parser.add_argument(
-    '--p',
-    help='dir for pretrained model',
-    default='../pretrained_models/cityscapes/PIDNet_L_Cityscapes_test.pt',
-    type=str)
-  parser.add_argument('--r',
-                      help='root or dir for input images',
-                      default='./samples/',
-                      type=str)
-  # resized_data
-  parser.add_argument('--sub', help='sub', default='resized_data_from_video',
-                      type=str)
-  parser.add_argument('--t',
-                      help='the format of input images (.jpg, .png, ...)',
-                      default='.jpg',
-                      type=str)
+    parser.add_argument('--a',
+                        help='pidnet-s, pidnet-m or pidnet-l',
+                        default='pidnet-l',
+                        type=str)
+    parser.add_argument('--c',
+                        help='cityscapes pretrained or not',
+                        type=bool,
+                        default=True)
+    parser.add_argument(
+        '--p',
+        help='dir for pretrained model',
+        default='../pretrained_models/cityscapes/PIDNet_L_Cityscapes_test.pt',
+        type=str)
+    parser.add_argument('--r',
+                        help='root or dir for input images',
+                        default='./samples/',
+                        type=str)
+    # resized_data
+    parser.add_argument('--sub',
+                        help='sub',
+                        default='resized_data_from_video',
+                        type=str)
+    parser.add_argument('--t',
+                        help='the format of input images (.jpg, .png, ...)',
+                        default='.jpg',
+                        type=str)
 
-  args = parser.parse_args()
+    args = parser.parse_args()
 
-  return args
+    return args
 
 
 if __name__ == '__main__':
@@ -66,10 +68,10 @@ if __name__ == '__main__':
         x = transform(image=padded_image)["image"]
         x = torch.unsqueeze(tensor_from_rgb_image(x), 0)
         with torch.no_grad():
-          prediction = model(x)[0][0]
+            prediction = model(x)[0][0]
         mask = (prediction > 0).cpu().numpy().astype(np.uint8)
         mask = unpad(mask, pads)
         if not os.path.exists(sv_path):
             os.mkdir(sv_path)
         # Save the result image
-        cv2.imwrite(sv_path+img_name, mask)
+        cv2.imwrite(sv_path + img_name, mask)

@@ -28,7 +28,17 @@ class FullModel(nn.Module):
         self.bd_loss = bd_loss
 
     def pixel_acc(self, pred, label):
+        """
+
+        Args:
+            pred: (batch_size, 2, 1024, 1024)
+            label: [batch_size, height, width]
+                0, 1, 255 로만 이루어져 있음.
+
+        Returns:
+        """
         _, preds = torch.max(pred, dim=1)
+        # preds: (batch_size, height, width), 0 혹은 1 로만 이루어져 있음.
         valid = (label >= 0).long()
         acc_sum = torch.sum(valid * (preds == label).long())
         pixel_sum = torch.sum(valid)
@@ -36,12 +46,25 @@ class FullModel(nn.Module):
         return acc
 
     def forward(self, inputs, labels, bd_gt, *args, **kwargs):
+        """
+
+        Args:
+            inputs: [batch_size, 3, height, width]
+            labels: [batch_size, height, width]
+                0, 1, 255 로만 이루어져 있음.
+            bd_gt: [batch_size, height, width]
+                0, 1 로만 이루어져 있음.
+            *args:
+            **kwargs:
+
+        Returns:
+
+        """
         # inputs: [batch_size, 3, height, width]
         # network_outputs: [batch_size, num_classes, height//8, width//8]
         network_outputs = self.model(inputs, *args, **kwargs)
-        x_extra_p_output = network_outputs[0]
         h, w = labels.size(1), labels.size(2)
-        ph, pw = x_extra_p_output.size(2), x_extra_p_output.size(3)
+        ph, pw = network_outputs[0].size(2), network_outputs[0].size(3)
         if ph != h or pw != w:
             for i in range(len(network_outputs)):
                 network_outputs[i] = F.interpolate(
@@ -49,19 +72,28 @@ class FullModel(nn.Module):
                     size=(h, w),
                     mode='bilinear',
                     align_corners=config.MODEL.ALIGN_CORNERS)
-
-        acc = self.pixel_acc(network_outputs[-2], labels)
-        loss_s = self.sem_loss(network_outputs[:-1], labels) # OhemCrossEntropy
-        loss_b = self.bd_loss(network_outputs[-1], bd_gt) # BondaryLoss
+        x_extra_p_output = network_outputs[0]  # (batch_size, 2, 1024, 1024)
+        x_output = network_outputs[1]  # (batch_size, 2, 1024, 1024)
+        x_extra_d_output = network_outputs[2]  # (batch_size, 1, 1024, 1024)
+        # S-loss (extra semantic loss) (P network)
+        # 0, 1, 255를 잘 맞추도록
+        acc = self.pixel_acc(pred=x_extra_p_output, label=labels)
+        #
+        loss_s = self.sem_loss([x_extra_p_output, x_output],
+                               labels)  # OhemCrossEntropy
+        # B-loss (boundary binary cross entropy loss) (D network)
+        loss_b = self.bd_loss(x_extra_d_output, bd_gt)  # BondaryLoss
 
         filler = torch.ones_like(labels) * config.TRAIN.IGNORE_LABEL
         bd_label = torch.where(
-            F.sigmoid(network_outputs[-1][:, 0, :, :]) > 0.8, labels, filler)
-        loss_sb = self.sem_loss(network_outputs[-2], bd_label) # OhemCrossEntropy
+            F.sigmoid(x_extra_d_output[:, 0, :, :]) > 0.8, labels, filler)
+        loss_sb = self.sem_loss(network_outputs[-2],
+                                bd_label)  # OhemCrossEntropy
         loss = loss_s + loss_b + loss_sb
 
         return torch.unsqueeze(loss,
                                0), network_outputs[:-1], acc, [loss_s, loss_b]
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""

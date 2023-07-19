@@ -3,13 +3,31 @@
 # ------------------------------------------------------------------------------
 
 import os
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import cv2
 import numpy as np
 from PIL import Image
 
 import torch
 from .base_dataset import BaseDataset
+import platform
+
+import torch
+
+def get_torch_gpu_device(gpu_idx: int = 0) -> str:
+    if IS_MAC:
+        assert torch.backends.mps.is_available()
+        device = f"mps:{gpu_idx}"
+    else:
+        assert torch.cuda.is_available()
+        device = f"cuda:{gpu_idx}"
+    return device
+
+if platform.system() == "Darwin" and platform.uname().processor == "arm":
+    IS_MAC = True
+    device = get_torch_gpu_device()
+else:
+    IS_MAC = False
 
 class Cityscapes(BaseDataset):
     def __init__(self, 
@@ -42,7 +60,7 @@ class Cityscapes(BaseDataset):
         self.img_list = [line.strip().split() for line in open(root+list_path)]
         # List[Dict[str, str]] # img, label, name
         self.files = self.read_files()
-
+        # check
         self.label_mapping = {
             -1: ignore_label,  #
             0: ignore_label,
@@ -80,7 +98,11 @@ class Cityscapes(BaseDataset):
             32: ignore_label,  # motorcycle
             33: ignore_label  # bicycle /
         }
-        self.class_weights = torch.FloatTensor([ 1.0023, 0.9843,]).cuda()
+        if IS_MAC:
+            # check
+            self.class_weights = torch.FloatTensor([ 1.0023,0.9843, ]).to(device=device)
+        else:
+            self.class_weights = torch.FloatTensor([ 1.0023,0.9843,]).cuda()
         
         self.bd_dilate_size = bd_dilate_size
     
@@ -118,10 +140,24 @@ class Cityscapes(BaseDataset):
                 label[temp == k] = v
         else:
             for k, v in self.label_mapping.items():
+                # v에 ignore label이 있음.
                 label[temp == k] = v
         return label
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> Tuple[np.ndarray, np.ndarray, np.ndarray,
+                      np.ndarray, str]:
+        """
+        Args:
+            index:
+
+        Returns:
+            image: (3, height, width)
+            label: (height, width)
+                0, 1, 255 로만 이루어져 있음.
+            edge: (height, width)
+                0, 1(edge임) 로만 이루어져 있음
+        """
+
         item = self.files[index]
         name = item["name"] # aachen_000000_000019_gtFine_labelIds
         image = cv2.imread(os.path.join(self.root,'cityscapes',item["img"]),
@@ -131,7 +167,6 @@ class Cityscapes(BaseDataset):
         if 'test' in self.list_path:
             image = self.input_transform(image)
             image = image.transpose((2, 0, 1))
-
             return image.copy(), np.array(size), name
         # label: gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png
         label = cv2.imread(os.path.join(self.root,'cityscapes',item["label"]),
@@ -139,9 +174,8 @@ class Cityscapes(BaseDataset):
         # (1024, 2048)
         label = self.convert_label(label)
 
-        image, label, edge = self.gen_sample(image, label, 
+        image, label, edge = self.gen_sample(image, label,
                                 self.multi_scale, self.flip, edge_size=self.bd_dilate_size)
-
         return image.copy(), label.copy(), edge.copy(), np.array(size), name
 
     

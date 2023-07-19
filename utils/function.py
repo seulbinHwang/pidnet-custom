@@ -16,6 +16,27 @@ from utils.utils import AverageMeter
 from utils.utils import get_confusion_matrix
 from utils.utils import adjust_learning_rate
 
+import platform
+
+import torch
+
+
+def get_torch_gpu_device(gpu_idx: int = 0) -> str:
+    if IS_MAC:
+        assert torch.backends.mps.is_available()
+        device = f"mps:{gpu_idx}"
+    else:
+        assert torch.cuda.is_available()
+        device = f"cuda:{gpu_idx}"
+    return device
+
+
+if platform.system() == "Darwin" and platform.uname().processor == "arm":
+    IS_MAC = True
+    device = get_torch_gpu_device()
+else:
+    IS_MAC = False
+
 
 def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
           trainloader, optimizer, model, writer_dict):
@@ -47,7 +68,7 @@ def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
     avg_bce_loss = AverageMeter()
     tic = time.time()
     cur_iters = epoch * epoch_iters
-    summary_writer = writer_dict['writer'] # SummaryWriter(logdir=tb_log_dir)
+    summary_writer = writer_dict['writer']  # SummaryWriter(logdir=tb_log_dir)
     global_steps = writer_dict['train_global_steps']
     for i_iter, batch in enumerate(trainloader, 0):
         """
@@ -65,9 +86,14 @@ labels:
 bd_gts: 이 값의 shape는 추가적인 레이블 정보의 형태에 따라 달라집니다.
         """
         images, labels, bd_gts, _, _ = batch
-        images = images.cuda()  # [6, 3,
-        labels = labels.long().cuda()
-        bd_gts = bd_gts.float().cuda()
+        if IS_MAC:
+            images = images.to(device)
+            labels = labels.long().to(device)
+            bd_gts = bd_gts.float().to(device)
+        else:
+            images = images.cuda()  # [6, 3,
+            labels = labels.long().cuda()
+            bd_gts = bd_gts.float().cuda()
 
         losses, _, acc, loss_list = model(images, labels, bd_gts)
         loss = losses.mean()
@@ -91,11 +117,14 @@ bd_gts: 이 값의 shape는 추가적인 레이블 정보의 형태에 따라 �
                                   i_iter + cur_iters)
 
         if i_iter % config.PRINT_FREQ == 0:
-            msg = 'Epoch: [{}/{}] Iter:[{}/{}], Time: {:.2f}, ' \
-                  'lr: {}, Loss: {:.6f}, Acc:{:.6f}, Semantic loss: {:.6f}, BCE loss: {:.6f}, SB loss: {:.6f}' .format(
-                      epoch, num_epoch, i_iter, epoch_iters,
-                      batch_time.average(), [x['lr'] for x in optimizer.param_groups], ave_loss.average(),
-                      ave_acc.average(), avg_sem_loss.average(), avg_bce_loss.average(),ave_loss.average()-avg_sem_loss.average()-avg_bce_loss.average())
+            msg = f"Epoch: [{epoch}/{num_epoch}] Iter:[{i_iter}/{epoch_iters}]," \
+                  f" Time: {batch_time.average():.2f}, " \
+                  f"lr: {[x['lr'] for x in optimizer.param_groups]}," \
+                  f" Loss: {ave_loss.average():.6f}, " \
+                  f"Acc: {ave_acc.average():.6f}, " \
+                  f"Semantic loss: {avg_sem_loss.average():.6f}, " \
+                  f"BCE loss: {avg_bce_loss.average():.6f}, " \
+                  f"SB loss: {ave_loss.average() - avg_sem_loss.average() - avg_bce_loss.average():.6f}"
             logging.info(msg)
 
     summary_writer.add_scalar('train_loss', ave_loss.average(), global_steps)
@@ -112,9 +141,14 @@ def validate(config, testloader, model, writer_dict):
         for idx, batch in enumerate(testloader):
             image, label, bd_gts, _, _ = batch
             size = label.size()
-            image = image.cuda()
-            label = label.long().cuda()
-            bd_gts = bd_gts.float().cuda()
+            if IS_MAC:
+                image = image.to(device)
+                label = label.long().to(device)
+                bd_gts = bd_gts.float().to(device)
+            else:
+                image = image.cuda()
+                label = label.long().cuda()
+                bd_gts = bd_gts.float().cuda()
 
             losses, pred, _, _ = model(image, label, bd_gts)
             if not isinstance(pred, (list, tuple)):
@@ -165,8 +199,14 @@ def testval(config,
         for index, batch in enumerate(tqdm(testloader)):
             image, label, _, _, name = batch
             size = label.size()
+            if IS_MAC:
+                image_cuda = image.to(device)
+                # label = label.long().to(device)
+            else:
+                image_cuda = image.cuda()
+                # label = label.long().cuda()
             pred = test_dataset.single_scale_inference(config, model,
-                                                       image.cuda())
+                                                       image_cuda)
 
             if pred.size()[-2] != size[-2] or pred.size()[-1] != size[-1]:
                 pred = F.interpolate(pred,
