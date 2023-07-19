@@ -108,15 +108,17 @@ def concatenate_two_images(sv_img: Image, img_path: str):
     return Image.fromarray(np.hstack((np.array(img), np.array(sv_img))))
 
 
-# python tools/custom.py --a 'pidnet-l' --p 'pretrained_models/cityscapes/PIDNet_L_Cityscapes_test.pt' --t '.png'
+# python -m tools.custom --a 'pidnet-l' --p 'pretrained_models/cityscapes/best.pt' --t '.jpg'
 if __name__ == '__main__':
     args = parse_args()
     dir = os.path.join(args.r, args.sub, '*' + args.t)
-    print("dir:", dir)
+    # r: ./samples/
+    # sub: resized_data_from_video
+    # t: .jpg
+    # dir:/samples/resized_data_from_video/*.jpg
     images_list = glob.glob(dir)
-    # print("images_list:", images_list)
     current_datetime = datetime.datetime.now().strftime("%m%d_%H%M%S")
-    sv_path = args.r + f'outputs_{current_datetime}/'
+    save_path = args.r + f'outputs_{current_datetime}/'
     if args.c:
         num_classes = 2
     else:
@@ -130,7 +132,7 @@ if __name__ == '__main__':
             img_name = img_path.split("/")[-1]
             img = cv2.imread(os.path.join(args.r, args.sub, img_name),
                              cv2.IMREAD_COLOR)
-            # img = cv2.resize(img, (720, 960), interpolation=cv2.INTER_LINEAR)
+            img = cv2.resize(img, (1024, 1024), interpolation=cv2.INTER_LINEAR)
             # 1024 -> 128 (1/8배)
             sv_img = np.zeros_like(img).astype(np.uint8)
             img = input_transform(img)
@@ -145,19 +147,14 @@ if __name__ == '__main__':
                                  mode='bilinear',
                                  align_corners=True)
             # pred: (1, class_num, 1024, 2048)
-
             pred = torch.argmax(pred, dim=1).squeeze(0).cpu().numpy()
             # (1, class_num, 1024, 2048) -> (1, 1024, 2048) -> (1024, 2048)
-            for i, color in enumerate(color_map):
-                for j in range(3):
-                    # 9 잔디
-                    #
-                    # if i not in [9, 11]:
-                    #     continue
-                    sv_img[:, :, j][pred == i] = color[j]
+            for color_idx, color in enumerate(color_map):
+                for rgb_channel_idx in range(3):
+                    sv_img[:, :, rgb_channel_idx][pred == color_idx] = color[rgb_channel_idx]
             sv_img = Image.fromarray(sv_img)
             sv_img = concatenate_two_images(sv_img, img_path)
 
-            if not os.path.exists(sv_path):
-                os.mkdir(sv_path)
-            sv_img.save(sv_path + img_name)
+            if not os.path.exists(save_path):
+                os.mkdir(save_path)
+            sv_img.save(save_path + img_name)

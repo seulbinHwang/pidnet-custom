@@ -49,7 +49,7 @@ else:
 
 
 def parse_args():
-    # python tools/train.py --cfg configs/cityscapes/pidnet_small_cityscapes.yaml GPUS "(0,)" TRAIN.BATCH_SIZE_PER_GPU 6
+    # python tools/train.py --cfg configs/cityscapes/pidnet_large_cityscapes.yaml GPUS "(0,1)" TRAIN.BATCH_SIZE_PER_GPU 6
     parser = argparse.ArgumentParser(description='Train segmentation network')
 
     parser.add_argument(
@@ -298,7 +298,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     # False
     if config.TRAIN.RESUME:
         # TODO: final_output_dir 을 "pretrained_models/cityscapes/PIDNet_L_Cityscapes_test.pt 로?"
-        # "output/cityscapes/pidnet_small_cityscapes/checkpoint.pth.tar"
+        # "output/cityscapes/pidnet_large_cityscapes/checkpoint.pth.tar"
         model_state_file = os.path.join(final_output_dir, 'checkpoint.pth.tar')
         if os.path.isfile(model_state_file):
             # map_location -> 'cuda:0' 장치에 저장된 모델을 CPU로 로드하고 사용합니다.
@@ -354,7 +354,6 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         """
         num_epoch = config.TRAIN.END_EPOCH  # 484
         base_lr = config.TRAIN.LR  # 0.01
-        print("ga")
         function.train(
             config,
             epoch,
@@ -366,12 +365,9 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             optimizer,  # torch.optim.SGD
             full_model,
             writer_dict)
-        print("na")
-        flag_rm= 1
         if flag_rm == 1 or (epoch % 5 == 0 and
                             epoch < real_end - 100) or (epoch
                                                         >= real_end - 100):
-            print("jere")
             valid_loss, mean_IoU, IoU_array = function.validate(
                 config, testloader, full_model, writer_dict)
         if flag_rm == 1:

@@ -5,7 +5,7 @@
 import logging
 import os
 import time
-
+import datetime
 import numpy as np
 from tqdm import tqdm
 
@@ -21,16 +21,26 @@ from PIL import Image
 
 import torch
 
-def concatenate_two_images(sv_img: Image, image):
-    img = Image.fromarray(image)
-    img = img.resize((sv_img.width, sv_img.height))
-    img = Image.blend(img, sv_img, 0.5)
-    return Image.fromarray(np.hstack((np.array(img), np.array(sv_img))))
+# gt_img, result_img
+def concatenate_two_images(gt_img, result_img):
+    return Image.fromarray(np.hstack((np.array(gt_img), np.array(result_img))))
 
 color_map = [
 (152, 251, 152),  # terrain (nature) 지역
 (220, 20, 60),  # person
 ]
+
+def reverse_input_transform(image, city=True):
+    image = image.astype(np.float32)  # Add this line
+    image *= [0.485, 0.456, 0.406]
+    image += [0.229, 0.224, 0.225]
+    image *= 255.0
+    if city:  # If original was BGR, convert back
+        image = image[:, :, ::-1].astype(np.uint8)
+    else:  # If original was RGB, just ensure correct type
+        image = image.astype(np.uint8)
+    return image
+
 
 def get_torch_gpu_device(gpu_idx: int = 0) -> str:
     if IS_MAC:
@@ -148,7 +158,7 @@ def validate(config, testloader, full_model, writer_dict):
             size = label.size()
             if IS_MAC:
                 image = image.to(device)
-                label = label.long().to(device)
+                label = label.long().to(device) # [batch_size, height, width]
                 bd_gts = bd_gts.float().to(device)
             else:
                 image = image.cuda()
@@ -159,7 +169,6 @@ def validate(config, testloader, full_model, writer_dict):
             if not isinstance(pred, (list, tuple)):
                 pred = [pred]
             for i, x in enumerate(pred):
-                print("i: ", i)
                 x = F.interpolate(input=x,
                                   size=size[-2:],
                                   mode='bilinear',
@@ -168,22 +177,30 @@ def validate(config, testloader, full_model, writer_dict):
                 confusion_matrix[..., i] += get_confusion_matrix(
                     label, x, size, config.DATASET.NUM_CLASSES,
                     config.TRAIN.IGNORE_LABEL)
-                if i == 1:
-                    print('yaho')
-                    pred2 = torch.argmax(pred, dim=1).squeeze(0).cpu().numpy()
-                    for i, color in enumerate(color_map):
-                        for j in range(3):
-                            # 9 잔디
-                            #
-                            # if i not in [9, 11]:
-                            #     continue
-                            sv_img[:, :, j][pred2 == i] = color[j]
-                    sv_img = Image.fromarray(sv_img)
-                    sv_img = concatenate_two_images(sv_img, image)
-                    sv_path = os.path.join(config.ROOT, 'val')
+                if i == 1 and idx == 0:
+                    # image: [batch_size, num_channels, height, width]
+                    pred2 = torch.argmax(x, dim=1).clone().detach()
+                    pred2 = pred2.squeeze(0).cpu().numpy()[0]
+                    # save_img = np.zeros_like(image).astype(np.uint8)
+                    gt_img = image.clone().detach().cpu().numpy()[0].transpose(1, 2, 0)
+                    gt_img = reverse_input_transform(gt_img).astype(np.uint8)
+                    result_img = image.clone().detach().cpu().numpy()[0].transpose(1, 2, 0)
+                    result_img = reverse_input_transform(result_img).astype(np.uint8)
+                    label_copy = label.clone().detach().cpu().numpy().astype(np.uint8)[0] # [batch_size, height, width]
+                    for color_idx, color in enumerate(color_map):
+                        for rgb_idx in range(3):
+                            gt_img[:, :, rgb_idx][label_copy == color_idx] = color[rgb_idx]
+                            result_img[:, :, rgb_idx][pred2 == color_idx] = color[rgb_idx]
+                    # save_img = Image.fromarray(save_img)
+                    gt_img = Image.fromarray(gt_img)
+                    result_img = Image.fromarray(result_img)
+                    save_img = concatenate_two_images(gt_img, result_img)
+                    sv_path = os.path.join(config.DATASET.ROOT, 'val') # data/val
                     if not os.path.exists(sv_path):
                         os.mkdir(sv_path)
-                    sv_img.save(sv_path + name)
+                    time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.jpg'
+                    sv_path = os.path.join(sv_path, time)
+                    save_img.save(sv_path)
             if idx % 10 == 0:
                 print(idx)
 
