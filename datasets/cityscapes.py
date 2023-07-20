@@ -14,7 +14,7 @@ import platform
 
 import torch
 
-UNKNOWN_CLASS = 1
+UNKNOWN_CLASS = 2
 
 def get_torch_gpu_device(gpu_idx: int = 0) -> str:
     if IS_MAC:
@@ -98,7 +98,7 @@ class Cityscapes(BaseDataset):
             19: UNKNOWN_CLASS,  # traffic light
             20: UNKNOWN_CLASS,  # traffic sign
             21: UNKNOWN_CLASS,  # vegetation
-            22: UNKNOWN_CLASS,  # terrain
+            22: 1,  # terrain
             23: UNKNOWN_CLASS,  # sky
             24: 0,  # person
             25: UNKNOWN_CLASS,  # rider
@@ -115,11 +115,13 @@ class Cityscapes(BaseDataset):
             # check
             self.class_weights = torch.FloatTensor([
                 1.0023,
+                0.2000,
                 0.0843,
             ]).to(device=device)
         else:
             self.class_weights = torch.FloatTensor([
                 1.0023,
+                0.2000,
                 0.0843,
             ]).cuda()
 

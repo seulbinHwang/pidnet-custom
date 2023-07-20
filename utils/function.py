@@ -27,8 +27,9 @@ def concatenate_two_images(gt_img, result_img):
     return Image.fromarray(np.hstack((np.array(gt_img), np.array(result_img))))
 
 color_map = [
-(152, 251, 152),  # terrain (nature) 지역
-(220, 20, 60),  # person
+(152, 251, 152),  # person
+(220, 20, 60),  # unknown
+(70, 130, 180) # terrain
 ]
 
 def reverse_input_transform(image, city=True):
@@ -178,16 +179,18 @@ def validate(config, testloader, full_model, writer_dict, eval_save_dir):
                 confusion_matrix[..., i] += get_confusion_matrix(
                     label, x, size, config.DATASET.NUM_CLASSES,
                     config.TRAIN.IGNORE_LABEL)
-                if i == 1 and idx == 0:
+                if i == 1 and idx %10 == 0:
+                    # random int within batch size
+                    random_idx = np.random.randint(0, image.size(0))
                     # image: [batch_size, num_channels, height, width]
                     pred2 = torch.argmax(x, dim=1).clone().detach() # [batch_size, height, width]
-                    pred2 = pred2.squeeze(0).cpu().numpy()[0] # [height, width]
+                    pred2 = pred2.squeeze(0).cpu().numpy()[random_idx] # [height, width]
                     # save_img = np.zeros_like(image).astype(np.uint8)
-                    gt_img = image.clone().detach().cpu().numpy()[0].transpose(1, 2, 0)
+                    gt_img = image.clone().detach().cpu().numpy()[random_idx].transpose(1, 2, 0)
                     gt_img = reverse_input_transform(gt_img).astype(np.uint8)
-                    result_img = image.clone().detach().cpu().numpy()[0].transpose(1, 2, 0)
+                    result_img = image.clone().detach().cpu().numpy()[random_idx].transpose(1, 2, 0)
                     result_img = reverse_input_transform(result_img).astype(np.uint8)
-                    label_copy = label.clone().detach().cpu().numpy().astype(np.uint8)[0] # [batch_size, height, width]
+                    label_copy = label.clone().detach().cpu().numpy().astype(np.uint8)[random_idx] # [batch_size, height, width]
                     for color_idx, color in enumerate(color_map):
                         for rgb_idx in range(3):
                             gt_img[:, :, rgb_idx][label_copy == color_idx] = color[rgb_idx]
@@ -199,8 +202,8 @@ def validate(config, testloader, full_model, writer_dict, eval_save_dir):
                     if not os.path.exists(eval_save_dir):
                         os.mkdir(eval_save_dir) #
                     time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-                    eval_save_dir = os.path.join(eval_save_dir, f'{time}.jpg')
-                    save_img.save(eval_save_dir)
+                    save_dir = os.path.join(eval_save_dir, f'{time}.jpg')
+                    save_img.save(save_dir)
             if idx % 10 == 0:
                 print(idx)
 
