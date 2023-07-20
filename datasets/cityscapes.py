@@ -97,9 +97,9 @@ class Cityscapes(BaseDataset):
             19: ignore_label,  # traffic light
             20: ignore_label,  # traffic sign
             21: ignore_label,  # vegetation
-            22: 0,  # terrain
+            22: 1,  # terrain
             23: ignore_label,  # sky
-            24: 1,  # person
+            24: 0,  # person
             25: ignore_label,  # rider
             26: ignore_label,  # car
             27: ignore_label,  # truck

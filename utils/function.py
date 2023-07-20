@@ -195,7 +195,7 @@ def validate(config, testloader, full_model, writer_dict):
                     gt_img = Image.fromarray(gt_img)
                     result_img = Image.fromarray(result_img)
                     save_img = concatenate_two_images(gt_img, result_img)
-                    sv_path = os.path.join(config.DATASET.ROOT, 'val') # data/val
+                    sv_path = os.path.join(config.DATASET.ROOT, 'val2') # data/val
                     if not os.path.exists(sv_path):
                         os.mkdir(sv_path)
                     time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.jpg'
