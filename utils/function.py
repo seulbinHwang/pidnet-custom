@@ -96,7 +96,7 @@ def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
 images: 
     [batch_size, num_channels, height, width]
 labels:  [batch_size, height, width]
-    0, 1, 255 로만 이루어져 있음.
+    0, 255 로만 이루어져 있음.
 bd_gts: [batch_size, height, width]
     0, 1 로만 이루어져 있음.
         """
@@ -164,7 +164,7 @@ def validate(config, testloader, full_model, writer_dict):
                 image = image.cuda()
                 label = label.long().cuda()
                 bd_gts = bd_gts.float().cuda()
-
+            # pred: [(batch_size, 2, height, width), (batch_size, 2, height, width)]
             losses, pred, _, _ = full_model(image, label, bd_gts)
             if not isinstance(pred, (list, tuple)):
                 pred = [pred]
@@ -173,14 +173,15 @@ def validate(config, testloader, full_model, writer_dict):
                                   size=size[-2:],
                                   mode='bilinear',
                                   align_corners=config.MODEL.ALIGN_CORNERS)
-
+                # x: [batch_size, 2, height, width]
+                # confusion_matrix: [num_classes, num_classes, NUM_OUTPUTS]
                 confusion_matrix[..., i] += get_confusion_matrix(
                     label, x, size, config.DATASET.NUM_CLASSES,
                     config.TRAIN.IGNORE_LABEL)
                 if i == 1 and idx == 0:
                     # image: [batch_size, num_channels, height, width]
-                    pred2 = torch.argmax(x, dim=1).clone().detach()
-                    pred2 = pred2.squeeze(0).cpu().numpy()[0]
+                    pred2 = torch.argmax(x, dim=1).clone().detach() # [batch_size, height, width]
+                    pred2 = pred2.squeeze(0).cpu().numpy()[0] # [height, width]
                     # save_img = np.zeros_like(image).astype(np.uint8)
                     gt_img = image.clone().detach().cpu().numpy()[0].transpose(1, 2, 0)
                     gt_img = reverse_input_transform(gt_img).astype(np.uint8)
@@ -208,9 +209,10 @@ def validate(config, testloader, full_model, writer_dict):
             ave_loss.update(loss.item())
 
     for i in range(nums):
-        pos = confusion_matrix[..., i].sum(1)
-        res = confusion_matrix[..., i].sum(0)
-        tp = np.diag(confusion_matrix[..., i])
+        # [num_classes, num_classes, NUM_OUTPUTS]
+        pos = confusion_matrix[..., i].sum(1) # [num_classes]: [1;0, 1.0]
+        res = confusion_matrix[..., i].sum(0) # [num_classes]: [class 0 이라고 예측한 픽셀 비율 / class 1 이라고 예측한 픽셀 비율]
+        tp = np.diag(confusion_matrix[..., i]) # [num_classes]: 정답을 맞춘 비율
         IoU_array = (tp / np.maximum(1.0, pos + res - tp))
         mean_IoU = IoU_array.mean()
 

@@ -257,13 +257,13 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     # True
     if config.LOSS.USE_OHEM:
         sem_criterion = OhemCrossEntropy(
-            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+            ignore_label=-1, #config.TRAIN.IGNORE_LABEL,  # 255
             thres=config.LOSS.OHEMTHRES,  # 0.9
             min_kept=config.LOSS.OHEMKEEP,  # 131072
             weight=train_dataset.class_weights)  # [ 1.0023,0.9843, ]
     else:
         sem_criterion = CrossEntropy(
-            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+            ignore_label=-1, #config.TRAIN.IGNORE_LABEL,  # 255
             weight=train_dataset.class_weights)  # [ 1.0023,0.9843, ]
 
     bd_criterion = BoundaryLoss()
@@ -386,7 +386,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             best_mIoU = mean_IoU
             torch.save(full_model.module.state_dict(),
                        os.path.join(final_output_dir, 'best.pt'))
-        msg = 'Loss: {:.3f}, MeanIU: {: 4.4f}, Best_mIoU: {: 4.4f}'.format(
+        msg = 'Loss: {:.3f}, Mean_IoU: {: 4.4f}, Best_mIoU: {: 4.4f}'.format(
             valid_loss, mean_IoU, best_mIoU)
         logging.info(msg)
         logging.info(IoU_array)

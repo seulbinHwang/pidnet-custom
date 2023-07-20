@@ -34,7 +34,7 @@ class FullModel(nn.Module):
         Args:
             pred: (batch_size, 2, 1024, 1024)
             label: [batch_size, height, width]
-                0, 1, 255 로만 이루어져 있음.
+                0, 255 로만 이루어져 있음.
 
         Returns:
         """
@@ -52,7 +52,7 @@ class FullModel(nn.Module):
         Args:
             inputs: [batch_size, 3, height, width]
             labels: [batch_size, height, width]
-                0, 1, 255 로만 이루어져 있음.
+                0, 255 로만 이루어져 있음.
             bd_gt: [batch_size, height, width]
                 0, 1 로만 이루어져 있음.
 
@@ -72,11 +72,14 @@ class FullModel(nn.Module):
                     size=(h, w),
                     mode='bilinear',
                     align_corners=config.MODEL.ALIGN_CORNERS)
+        # [6, 2, 1024, 1024]
         x_extra_p_output = network_outputs[0]  # (batch_size, 2, height, width)
+        # [6, 2, 1024, 1024]
         x_output = network_outputs[1]  # (batch_size, 2, height, width)
+        # [6, 1, 1024, 1024]
         x_extra_d_output = network_outputs[2]  # (batch_size, 1, height, width)
         # S-loss (extra semantic loss) (P network)
-        # 0, 1, 255를 잘 맞추도록
+        # 0, 255를 잘 맞추도록
         acc = self.pixel_acc(pred=x_extra_p_output, label=labels)
         loss_s = self.sem_loss(scores=[x_extra_p_output, x_output],
                                target=labels)  # OhemCrossEntropy
@@ -174,18 +177,28 @@ def create_logger(cfg, cfg_name: str, phase='train') -> Tuple[logging.Logger, st
     return logger, str(final_output_dir), str(tensorboard_log_dir)
 
 
-def get_confusion_matrix(label, pred, size, num_class, ignore=-1):
-    """
-    Calcute the confusion matrix by given label and pred
-    """
-    output = pred.cpu().numpy().transpose(0, 2, 3, 1)
-    seg_pred = np.asarray(np.argmax(output, axis=3), dtype=np.uint8)
-    seg_gt = np.asarray(label.cpu().numpy()[:, :size[-2], :size[-1]],
-                        dtype=np.int)
+def get_confusion_matrix(label, pred, size, num_class, ignore_label=-1):
+    """Calculate the confusion matrix by given label and pred.
 
-    ignore_index = seg_gt != ignore
-    seg_gt = seg_gt[ignore_index]
-    seg_pred = seg_pred[ignore_index]
+    Args:
+        label: [batch_size, height, width]
+            0, 1, 255 로만 이루어져 있음.
+        pred: [batch_size, 2, height, width]
+        size: (batch_size, height, width)
+        num_class: 2
+        ignore_label: 255
+
+    Returns:
+
+    """
+    output = pred.cpu().numpy().transpose(0, 2, 3, 1) # (batch_size, height, width, 2)
+    seg_pred = np.asarray(np.argmax(output, axis=3), dtype=np.uint8) # (batch_size, height, width)
+    # size[-2], size[-1] = height, width
+    seg_gt = np.asarray(label.cpu().numpy()[:, :size[-2], :size[-1]],
+                        dtype=np.int) # (batch_size, height, width)
+    ignore_index = seg_gt != ignore_label # 중요하면 1, 아니면 0
+    seg_gt = seg_gt[ignore_index] # 중요한 것만 뽑아냄
+    seg_pred = seg_pred[ignore_index] # 중요한 것만 뽑아냄
 
     index = (seg_gt * num_class + seg_pred).astype('int32')
     label_count = np.bincount(index)

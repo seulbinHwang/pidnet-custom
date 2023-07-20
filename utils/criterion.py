@@ -92,13 +92,13 @@ class OhemCrossEntropy(nn.Module):
         ignore_removed_target[ignore_removed_target == self.ignore_label] = 0
         unsqueezed_ignore_removed_target = ignore_removed_target.unsqueeze(
             1)  # (batch_size, 1, height, width)
-        pred = F.softmax(score, dim=1)  # (batch_size, 2,  height, width)
+        # (batch_size, 2, height, width) -> (batch_size, 2, height, width)
+        pred = F.softmax(score, dim=1)
         """
 pred 텐서에서 첫 번째 차원(인덱스 1)을 기준으로, 
     unsqueeze_target에서 추출한 인덱스에 해당하는 값을 가져옵니다.
 즉, pred 텐서에서 unsqueeze_target에서 추출한 인덱스의 위치에 해당하는 값을 추출합니다.
         """
-        # pred: (batch_size, height, width)
         # unsqueezed_ignore_removed_target: (batch_size, 1, height, width)
         pred = pred.gather(1, unsqueezed_ignore_removed_target)
         # pred:  (batch_size, 1, height, width)
