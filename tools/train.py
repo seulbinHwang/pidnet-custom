@@ -8,7 +8,7 @@ import pprint
 
 import logging
 import timeit
-
+import datetime
 import numpy as np
 
 import torch
@@ -116,6 +116,11 @@ def main():
     logger, final_output_dir, tb_log_dir = create_logger(cfg=config,
                                                          cfg_name=args.cfg,
                                                          phase='train')
+    str_num_classes = '_' + str(config.DATASET.NUM_CLASSES) + '_'
+    time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")
+    final_output_dir = os.path.join(final_output_dir, str_num_classes+time)
+    if not os.path.exists(final_output_dir):
+        os.makedirs(final_output_dir)
     logger.info(pprint.pformat(args))
     logger.info(config)
     """
@@ -151,9 +156,9 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         gpus = [0]
     else:
         gpus = list(config.GPUS)
-        if torch.cuda.device_count() != len(gpus):
-            print("The gpu numbers do not match!")
-            return 0
+        # if torch.cuda.device_count() != len(gpus):
+        #     print("The gpu numbers do not match!")
+        #     return 0
 
     imgnet = 'imagenet' in config.MODEL.PRETRAINED
     # PIDNet
@@ -257,13 +262,13 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     # True
     if config.LOSS.USE_OHEM:
         sem_criterion = OhemCrossEntropy(
-            ignore_label=-1, #config.TRAIN.IGNORE_LABEL,  # 255
+            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
             thres=config.LOSS.OHEMTHRES,  # 0.9
             min_kept=config.LOSS.OHEMKEEP,  # 131072
             weight=train_dataset.class_weights)  # [ 1.0023,0.9843, ]
     else:
         sem_criterion = CrossEntropy(
-            ignore_label=-1, #config.TRAIN.IGNORE_LABEL,  # 255
+            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
             weight=train_dataset.class_weights)  # [ 1.0023,0.9843, ]
 
     bd_criterion = BoundaryLoss()
@@ -321,6 +326,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     end_epoch = config.TRAIN.END_EPOCH  # 484
     num_iters = config.TRAIN.END_EPOCH * epoch_iters  # 484 * 200 = 96800
     real_end = 120 + 1 if 'camvid' in config.DATASET.TRAIN_SET else end_epoch
+    eval_save_dir = os.path.join(final_output_dir, 'eval')
     # real_end: end_epoch = 484
     for epoch in range(last_epoch, real_end):
         """
@@ -369,7 +375,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
                             epoch < real_end - 100) or (epoch
                                                         >= real_end - 100):
             valid_loss, mean_IoU, IoU_array = function.validate(
-                config, testloader, full_model, writer_dict)
+                config, testloader, full_model, writer_dict, eval_save_dir)
         if flag_rm == 1:
             flag_rm = 0
 

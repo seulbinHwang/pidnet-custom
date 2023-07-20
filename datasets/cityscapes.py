@@ -14,6 +14,7 @@ import platform
 
 import torch
 
+UNKNOWN_CLASS = 1
 
 def get_torch_gpu_device(gpu_idx: int = 0) -> str:
     if IS_MAC:
@@ -74,41 +75,41 @@ class Cityscapes(BaseDataset):
         self.files: List[Dict[str, str]] = self.read_files()
         # check
         self.label_mapping = {
-            -1: ignore_label,  #
-            0: ignore_label,
-            1: ignore_label,
-            2: ignore_label,
-            3: ignore_label,
-            4: ignore_label,
-            5: ignore_label,
-            6: ignore_label,
-            7: ignore_label,  # road
-            8: ignore_label,  # sidewalk
-            9: ignore_label,
-            10: ignore_label,
-            11: ignore_label,  # building
-            12: ignore_label,  # wall
-            13: ignore_label,  # fence
-            14: ignore_label,
-            15: ignore_label,
-            16: ignore_label,
-            17: ignore_label,  # pole
-            18: ignore_label,
-            19: ignore_label,  # traffic light
-            20: ignore_label,  # traffic sign
-            21: ignore_label,  # vegetation
-            22: ignore_label,  # terrain
-            23: ignore_label,  # sky
+            -1: UNKNOWN_CLASS,  #
+            0: UNKNOWN_CLASS,
+            1: UNKNOWN_CLASS,
+            2: UNKNOWN_CLASS,
+            3: UNKNOWN_CLASS,
+            4: UNKNOWN_CLASS,
+            5: UNKNOWN_CLASS,
+            6: UNKNOWN_CLASS,
+            7: UNKNOWN_CLASS,  # road
+            8: UNKNOWN_CLASS,  # sidewalk
+            9: UNKNOWN_CLASS,
+            10: UNKNOWN_CLASS,
+            11: UNKNOWN_CLASS,  # building
+            12: UNKNOWN_CLASS,  # wall
+            13: UNKNOWN_CLASS,  # fence
+            14: UNKNOWN_CLASS,
+            15: UNKNOWN_CLASS,
+            16: UNKNOWN_CLASS,
+            17: UNKNOWN_CLASS,  # pole
+            18: UNKNOWN_CLASS,
+            19: UNKNOWN_CLASS,  # traffic light
+            20: UNKNOWN_CLASS,  # traffic sign
+            21: UNKNOWN_CLASS,  # vegetation
+            22: UNKNOWN_CLASS,  # terrain
+            23: UNKNOWN_CLASS,  # sky
             24: 0,  # person
-            25: ignore_label,  # rider
-            26: ignore_label,  # car
-            27: ignore_label,  # truck
-            28: ignore_label,  # bus
-            29: ignore_label,
-            30: ignore_label,
-            31: ignore_label,  # train
-            32: ignore_label,  # motorcycle
-            33: ignore_label  # bicycle /
+            25: UNKNOWN_CLASS,  # rider
+            26: UNKNOWN_CLASS,  # car
+            27: UNKNOWN_CLASS,  # truck
+            28: UNKNOWN_CLASS,  # bus
+            29: UNKNOWN_CLASS,
+            30: UNKNOWN_CLASS,
+            31: UNKNOWN_CLASS,  # train
+            32: UNKNOWN_CLASS,  # motorcycle
+            33: UNKNOWN_CLASS  # bicycle /
         }
         if IS_MAC:
             # check

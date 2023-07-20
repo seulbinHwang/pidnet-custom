@@ -21,6 +21,7 @@ from PIL import Image
 
 import torch
 
+VALIDATE_COUNT = 0
 # gt_img, result_img
 def concatenate_two_images(gt_img, result_img):
     return Image.fromarray(np.hstack((np.array(gt_img), np.array(result_img))))
@@ -109,7 +110,6 @@ bd_gts: [batch_size, height, width]
             images = images.cuda()  # [6, 3,
             labels = labels.long().cuda()
             bd_gts = bd_gts.float().cuda()
-
         losses, _, acc, loss_list = full_model(inputs=images, labels=labels, bd_gt=bd_gts)
         loss = losses.mean()
         acc = acc.mean()
@@ -146,7 +146,7 @@ bd_gts: [batch_size, height, width]
     writer_dict['train_global_steps'] = global_steps + 1
 
 
-def validate(config, testloader, full_model, writer_dict):
+def validate(config, testloader, full_model, writer_dict, eval_save_dir):
     full_model.eval()
     ave_loss = AverageMeter()
     nums = config.MODEL.NUM_OUTPUTS # 2
@@ -196,12 +196,11 @@ def validate(config, testloader, full_model, writer_dict):
                     gt_img = Image.fromarray(gt_img)
                     result_img = Image.fromarray(result_img)
                     save_img = concatenate_two_images(gt_img, result_img)
-                    sv_path = os.path.join(config.DATASET.ROOT, 'val2') # data/val
-                    if not os.path.exists(sv_path):
-                        os.mkdir(sv_path)
-                    time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.jpg'
-                    sv_path = os.path.join(sv_path, time)
-                    save_img.save(sv_path)
+                    if not os.path.exists(eval_save_dir):
+                        os.mkdir(eval_save_dir) #
+                    time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+                    eval_save_dir = os.path.join(eval_save_dir, f'{time}.jpg')
+                    save_img.save(eval_save_dir)
             if idx % 10 == 0:
                 print(idx)
 
