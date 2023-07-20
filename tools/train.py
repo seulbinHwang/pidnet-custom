@@ -4,7 +4,7 @@
 
 import argparse
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import pprint
 
 import logging
@@ -60,6 +60,7 @@ def parse_args():
         type=str)
     parser.add_argument('--seed', type=int, default=304)
     parser.add_argument('--fine_tune', type=bool, default=False)
+    parser.add_argument('--low_resolution', type=bool, default=False)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -204,7 +205,8 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
         base_size=config.TRAIN.BASE_SIZE,  # 2048
         crop_size=crop_size,  # (1024, 1024)
-        scale_factor=config.TRAIN.SCALE_FACTOR)  # 16
+        scale_factor=config.TRAIN.SCALE_FACTOR,
+    low_resolution=args.low_resolution)  # 16
     """
         train_dataset: 
             학습에 사용할 데이터셋 객체입니다. 
@@ -250,7 +252,8 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         flip=False,
         ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
         base_size=config.TEST.BASE_SIZE,  # 2048
-        crop_size=test_size)  # (1024, 2048)
+        crop_size=test_size,
+        low_resolution=args.low_resolution)  # (1024, 2048)
 
     testloader = torch.utils.data.DataLoader(
         test_dataset,

@@ -14,7 +14,8 @@ import platform
 
 import torch
 
-UNKNOWN_CLASS = 2
+# UNKNOWN_CLASS = 2
+UNKNOWN_CLASS = 1
 
 def get_torch_gpu_device(gpu_idx: int = 0) -> str:
     if IS_MAC:
@@ -45,6 +46,7 @@ class Cityscapes(BaseDataset):
                  base_size=2048,
                  crop_size=(512, 1024),
                  scale_factor=16,
+                 low_resolution=False,
                  mean=[0.485, 0.456, 0.406],
                  std=[0.229, 0.224, 0.225],
                  bd_dilate_size=4):
@@ -62,7 +64,7 @@ class Cityscapes(BaseDataset):
         # 'list/cityscapes/train.lst'
         self.list_path = list_path
         self.num_classes = num_classes
-
+        self.low_resolution = low_resolution
         self.multi_scale = multi_scale
         self.flip = flip
         # data/list/cityscapes/train.lst
@@ -98,7 +100,7 @@ class Cityscapes(BaseDataset):
             19: UNKNOWN_CLASS,  # traffic light
             20: UNKNOWN_CLASS,  # traffic sign
             21: UNKNOWN_CLASS,  # vegetation
-            22: 1,  # terrain
+            22: UNKNOWN_CLASS,  # terrain
             23: UNKNOWN_CLASS,  # sky
             24: 0,  # person
             25: UNKNOWN_CLASS,  # rider
@@ -115,15 +117,26 @@ class Cityscapes(BaseDataset):
             # check
             self.class_weights = torch.FloatTensor([
                 1.0023,
-                0.2000,
                 0.0843,
             ]).to(device=device)
         else:
             self.class_weights = torch.FloatTensor([
                 1.0023,
-                0.2000,
                 0.0843,
             ]).cuda()
+        # if IS_MAC:
+        #     # check
+        #     self.class_weights = torch.FloatTensor([
+        #         1.0023,
+        #         0.2000,
+        #         0.0843,
+        #     ]).to(device=device)
+        # else:
+        #     self.class_weights = torch.FloatTensor([
+        #         1.0023,
+        #         0.2000,
+        #         0.0843,
+        #     ]).cuda()
 
         self.bd_dilate_size = bd_dilate_size
 
@@ -179,11 +192,14 @@ class Cityscapes(BaseDataset):
             edge: (height, width)
                 0, 1(edge임) 로만 이루어져 있음
         """
-
         item = self.files[index]
         name = item["name"]  # aachen_000000_000019_gtFine_labelIds
-        image = cv2.imread(os.path.join(self.root, 'cityscapes', item["img"]),
-                           cv2.IMREAD_COLOR)
+        if self.low_resolution:
+            # leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
+            path = os.path.join(self.root, 'cityscapes_resized', item["img"])
+        else:
+            path = os.path.join(self.root, 'cityscapes', item["img"])
+        image = cv2.imread(path, cv2.IMREAD_COLOR)
         size = image.shape  # (H, w, 3)
 
         if 'test' in self.list_path:
@@ -191,16 +207,20 @@ class Cityscapes(BaseDataset):
             image = image.transpose((2, 0, 1))  # (3, H, w)
             return image.copy(), np.array(size), name
         # label: gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png
-        label = cv2.imread(os.path.join(self.root, 'cityscapes', item["label"]),
-                           cv2.IMREAD_GRAYSCALE)
+        if self.low_resolution:
+            path = os.path.join(self.root, 'cityscapes_resized', item["label"])
+
+        else:
+            path = os.path.join(self.root, 'cityscapes', item["label"])
+        label = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
         # (1024, 2048)
         label = self.convert_label(label)
-
         image, label, edge = self.gen_sample(image,
                                              label,
                                              self.multi_scale,
                                              self.flip,
                                              edge_size=self.bd_dilate_size)
+
         return image.copy(), label.copy(), edge.copy(), np.array(size), name
 
     def single_scale_inference(self, config, model, image):

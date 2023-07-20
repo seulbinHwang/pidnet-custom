@@ -26,11 +26,16 @@ VALIDATE_COUNT = 0
 def concatenate_two_images(gt_img, result_img):
     return Image.fromarray(np.hstack((np.array(gt_img), np.array(result_img))))
 
+
 color_map = [
-(152, 251, 152),  # person
-(220, 20, 60),  # unknown
-(70, 130, 180) # terrain
+(152, 251, 152),  # terrain (nature) 지역
+(220, 20, 60),  # person
 ]
+# color_map = [
+# (152, 251, 152),  # person
+# (220, 20, 60),  # unknown
+# (70, 130, 180) # terrain
+# ]
 
 def reverse_input_transform(image, city=True):
     image = image.astype(np.float32)  # Add this line
