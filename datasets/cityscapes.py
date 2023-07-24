@@ -14,8 +14,8 @@ import platform
 
 import torch
 
-# UNKNOWN_CLASS = 2
-UNKNOWN_CLASS = 1
+UNKNOWN_CLASS = 2
+# UNKNOWN_CLASS = 1
 
 def get_torch_gpu_device(gpu_idx: int = 0) -> str:
     if IS_MAC:
@@ -100,10 +100,10 @@ class Cityscapes(BaseDataset):
             19: UNKNOWN_CLASS,  # traffic light
             20: UNKNOWN_CLASS,  # traffic sign
             21: UNKNOWN_CLASS,  # vegetation
-            22: UNKNOWN_CLASS,  # terrain
+            22: 1,  # terrain
             23: UNKNOWN_CLASS,  # sky
             24: 0,  # person
-            25: UNKNOWN_CLASS,  # rider
+            25: 0,  # rider
             26: UNKNOWN_CLASS,  # car
             27: UNKNOWN_CLASS,  # truck
             28: UNKNOWN_CLASS,  # bus
@@ -113,30 +113,30 @@ class Cityscapes(BaseDataset):
             32: UNKNOWN_CLASS,  # motorcycle
             33: UNKNOWN_CLASS  # bicycle /
         }
-        if IS_MAC:
-            # check
-            self.class_weights = torch.FloatTensor([
-                1.0023,
-                0.0843,
-            ]).to(device=device)
-        else:
-            self.class_weights = torch.FloatTensor([
-                1.0023,
-                0.0843,
-            ]).cuda()
         # if IS_MAC:
         #     # check
         #     self.class_weights = torch.FloatTensor([
         #         1.0023,
-        #         0.2000,
         #         0.0843,
         #     ]).to(device=device)
         # else:
         #     self.class_weights = torch.FloatTensor([
         #         1.0023,
-        #         0.2000,
         #         0.0843,
         #     ]).cuda()
+        if IS_MAC:
+            # check
+            self.class_weights = torch.FloatTensor([
+                1.0023,
+                0.3000,
+                0.0843,
+            ]).to(device=device)
+        else:
+            self.class_weights = torch.FloatTensor([
+                1.0023,
+                0.3000,
+                0.0843,
+            ]).cuda()
 
         self.bd_dilate_size = bd_dilate_size
 
