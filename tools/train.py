@@ -259,13 +259,13 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     # True
     if config.LOSS.USE_OHEM:
         sem_criterion = OhemCrossEntropy(
-            ignore_label=-1,  # config.TRAIN.IGNORE_LABEL,  # 255
+            ignore_label=config.TRAIN.IGNORE_LABEL,  # config.TRAIN.IGNORE_LABEL,  # 255
             thres=config.LOSS.OHEMTHRES,  # 0.9
             min_kept=config.LOSS.OHEMKEEP,  # 131072
             weight=train_dataset.class_weights)  # [ 1.0023,0.9843, ]
     else:
         sem_criterion = CrossEntropy(
-            ignore_label=-1,  # config.TRAIN.IGNORE_LABEL,  # 255
+            ignore_label=config.TRAIN.IGNORE_LABEL,  # config.TRAIN.IGNORE_LABEL,  # 255
             weight=train_dataset.class_weights)  # [ 1.0023,0.9843, ]
 
     bd_criterion = BoundaryLoss()
