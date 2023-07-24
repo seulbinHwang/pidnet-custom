@@ -66,15 +66,9 @@ index = 0
 item = files[index]
 name = item["name"]
 path = os.path.join(root, 'cityscapes', item["img"])
-print("path: ", path)
 image = cv2.imread(path, cv2.IMREAD_COLOR)
 size = image.shape
 
 label = cv2.imread(os.path.join(root, 'cityscapes', item["label"]),
                    cv2.IMREAD_GRAYSCALE)
-print("label shape: ", label.shape)
-print("label: ", label)
 label = convert_label(label)
-print("------------------")
-print("label shape: ", label.shape)
-print("label: ", label)

@@ -28,18 +28,23 @@ def parse_args():
                         help='cityscapes pretrained or not',
                         type=bool,
                         default=True)
+    # load image number
+    parser.add_argument('--load_image_num',
+                        help='load image number',
+                        default=20,
+                        type=int)
     # number of classes
     parser.add_argument('--num_classes',
                         help='number of classes',
-                        default=2,
+                        default=3,
                         type=int)
     parser.add_argument('--pretrained_model_directory',
                         help='dir for pretrained model',
-                        default='./pretrained_models/cityscapes/best_2.pt',
+                        default='./pretrained_models/cityscapes/best_3.pt',
                         type=str)
     parser.add_argument('--image_root_directory',
                         help='root or dir for input images',
-                        default='./samples/',
+                        default='./data/',
                         type=str)
     # resized_data
     parser.add_argument('--image_directory',
@@ -90,20 +95,84 @@ def load_pretrained(model, pretrained_directory):
     return model
 
 
-def concatenate_two_images(segment_result_image: Image, img_path: str):
-    image_with_result = Image.open(img_path)
-    image_with_result = image_with_result.resize(
-        (segment_result_image.width, segment_result_image.height))
-    image_with_result = Image.blend(image_with_result, segment_result_image,
-                                    0.5)
+def concatenate_two_images(segment_result_image: Image, original_image,
+                           original_image_w_label):
+    """
+
+    :param segment_result_image: shape (H, W, 3)
+    :param original_image: shape (H, W, 3)
+    :param label: shape (H, W)
+    :return:
+    """
+    original_image = Image.fromarray(original_image)
+    original_image_w_label = Image.fromarray(original_image_w_label)
+    original_image_w_label = Image.blend(original_image_w_label, original_image,
+                                         0.5)
+    segment_result_image = Image.blend(original_image, segment_result_image,
+                                       0.5)
     return Image.fromarray(
         np.hstack(
-            (np.array(image_with_result), np.array(segment_result_image))))
+            (np.array(original_image_w_label), np.array(segment_result_image))))
+
+
+def convert_label(label, inverse=False):
+    temp = label.copy()
+    if inverse:
+        for v, k in label_mapping.items():
+            label[temp == k] = v
+    else:
+        for k, v in label_mapping.items():
+            label[temp == k] = v
+    return label
 
 
 # python -m tools.custom --network_name 'pidnet-l' --pretrained_model_directory 'pretrained_models/cityscapes/best.pt' --image_format '.jpg'
 if __name__ == '__main__':
     args = parse_args()
+    if args.num_classes == 2:
+        UNKNOWN_CLASS = 1
+        TERRIAN_CLASS = UNKNOWN_CLASS
+    else:
+        UNKNOWN_CLASS = 2
+        TERRIAN_CLASS = 1
+    label_mapping = {
+        -1: UNKNOWN_CLASS,  #
+        0: UNKNOWN_CLASS,
+        1: UNKNOWN_CLASS,
+        2: UNKNOWN_CLASS,
+        3: UNKNOWN_CLASS,
+        4: UNKNOWN_CLASS,
+        5: UNKNOWN_CLASS,
+        6: UNKNOWN_CLASS,
+        7: UNKNOWN_CLASS,  # road
+        8: UNKNOWN_CLASS,  # sidewalk
+        9: UNKNOWN_CLASS,
+        10: UNKNOWN_CLASS,
+        11: UNKNOWN_CLASS,  # building
+        12: UNKNOWN_CLASS,  # wall
+        13: UNKNOWN_CLASS,  # fence
+        14: UNKNOWN_CLASS,
+        15: UNKNOWN_CLASS,
+        16: UNKNOWN_CLASS,
+        17: UNKNOWN_CLASS,  # pole
+        18: UNKNOWN_CLASS,
+        19: UNKNOWN_CLASS,  # traffic light
+        20: UNKNOWN_CLASS,  # traffic sign
+        21: UNKNOWN_CLASS,  # vegetation
+        22: TERRIAN_CLASS,  # terrain
+        23: UNKNOWN_CLASS,  # sky
+        24: 0,  # person
+        25: UNKNOWN_CLASS,  # rider
+        26: UNKNOWN_CLASS,  # car
+        27: UNKNOWN_CLASS,  # truck
+        28: UNKNOWN_CLASS,  # bus
+        29: UNKNOWN_CLASS,
+        30: UNKNOWN_CLASS,
+        31: UNKNOWN_CLASS,  # train
+        32: UNKNOWN_CLASS,  # motorcycle
+        33: UNKNOWN_CLASS  # bicycle /
+    }
+
     images_directories = os.path.join(args.image_root_directory,
                                       args.image_directory,
                                       '*' + args.image_format)
@@ -149,23 +218,41 @@ if __name__ == '__main__':
         ]
     model = load_pretrained(model, args.pretrained_model_directory).cpu()
     model.eval()
+    list_path = "list/cityscapes/val.lst"
+    img_list = [line.strip().split() for line in
+                open(args.image_root_directory + list_path)]
+    files = []
+    for item in img_list:
+        image_path, label_path = item
+        name = os.path.splitext(os.path.basename(label_path))[0]
+        files.append({"img": image_path, "label": label_path, "name": name})
+
     with torch.no_grad():
-        for img_path in images_list:
-            # print("img_path:", img_path)
-            img_name = img_path.split("/")[-1]
-            original_image = cv2.imread(
-                os.path.join(args.image_root_directory, args.image_directory,
-                             img_name), cv2.IMREAD_COLOR)
+        for idx, file in enumerate(files):
+            if idx >= args.load_image_num:
+                break
+            img_name = file["name"]
+            img_path = os.path.join(args.image_root_directory, 'cityscapes',
+                                    file["img"])
+            label = cv2.imread(
+                os.path.join(args.image_root_directory, 'cityscapes',
+                             file["label"]),
+                cv2.IMREAD_GRAYSCALE)
+            label = convert_label(label)
+            label = cv2.resize(label, (1024, 1024),
+                               interpolation=cv2.INTER_LINEAR)
+            original_image = cv2.imread(img_path, cv2.IMREAD_COLOR)
             original_image = cv2.resize(original_image, (1024, 1024),
                                         interpolation=cv2.INTER_LINEAR)
+            original_image_w_label = original_image.copy()
             # 1024 -> 128 (1/8배)
             segment_result_image = np.zeros_like(original_image).astype(
                 np.uint8)
+            original_image_copy = original_image.copy()
             original_image = input_transform(original_image)
             original_image = original_image.transpose((2, 0, 1)).copy()
             original_image = torch.from_numpy(original_image).unsqueeze(0).cpu()
             # original_image: torch.Size([1, 3, H, W])
-
             pred = model(original_image)
             # pred: (1, class_num, 128, 256)
             pred = F.interpolate(pred,
@@ -179,27 +266,31 @@ if __name__ == '__main__':
                 for rgb_channel_idx in range(3):
                     segment_result_image[:, :, rgb_channel_idx][
                         pred == color_idx] = color[rgb_channel_idx]
+                    original_image_w_label[:, :, rgb_channel_idx][
+                        label == color_idx] = color[rgb_channel_idx]
             segment_result_image = Image.fromarray(segment_result_image)
-            save_images = concatenate_two_images(segment_result_image, img_path)
+            save_images = concatenate_two_images(segment_result_image,
+                                                 original_image_copy,
+                                                 original_image_w_label)
 
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
-            save_images.save(save_path + img_name)
+            save_images.save(save_path + img_name + '.jpg')
     """
     - custom.py의 코드로 인해, 성능이 잘 안나오는 것 처럼 보이는 것은 아닐까?
         - 아닌듯 
     - cityscape test dataset에서는 잘 학습되었는데, custom dataset에서 덜 잘되는 것은 아닐까?
         - cityscape test dataset 에서의 결과?
             - 2
-                - 추가 확인 필요
+                - 학습 잘 되었음.
+                - 오토바이, 자전거, 사람을 구분하면 안됨!!!
             - 3
-                - 매우 잘 학습된 것 같음.
+                - 학습 잘 되었음.
+                - 잔디밭.
 
         - custom dataset 에서의 결과?
             - 2
             - 3
         - cityscape test dataset 에서 잘 되었다면, custom dataset과 어떤 차이가 있는지 고민해보자.
         - cityscape test / custom 차이가 별로 없다면, test dataset에서 어떤 부분이 잘 학습 안되었는지 고민해보자.
-
-
     """

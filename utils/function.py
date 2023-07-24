@@ -21,14 +21,21 @@ from PIL import Image
 
 import torch
 
+VALIDATE_COUNT = 0
 # gt_img, result_img
 def concatenate_two_images(gt_img, result_img):
     return Image.fromarray(np.hstack((np.array(gt_img), np.array(result_img))))
+
 
 color_map = [
 (152, 251, 152),  # terrain (nature) 지역
 (220, 20, 60),  # person
 ]
+# color_map = [
+# (152, 251, 152),  # person
+# (220, 20, 60),  # unknown
+# (70, 130, 180) # terrain
+# ]
 
 def reverse_input_transform(image, city=True):
     image = image.astype(np.float32)  # Add this line
@@ -109,7 +116,6 @@ bd_gts: [batch_size, height, width]
             images = images.cuda()  # [6, 3,
             labels = labels.long().cuda()
             bd_gts = bd_gts.float().cuda()
-
         losses, _, acc, loss_list = full_model(inputs=images, labels=labels, bd_gt=bd_gts)
         loss = losses.mean()
         acc = acc.mean()
@@ -146,7 +152,7 @@ bd_gts: [batch_size, height, width]
     writer_dict['train_global_steps'] = global_steps + 1
 
 
-def validate(config, testloader, full_model, writer_dict):
+def validate(config, testloader, full_model, writer_dict, eval_save_dir):
     full_model.eval()
     ave_loss = AverageMeter()
     nums = config.MODEL.NUM_OUTPUTS # 2
@@ -178,16 +184,18 @@ def validate(config, testloader, full_model, writer_dict):
                 confusion_matrix[..., i] += get_confusion_matrix(
                     label, x, size, config.DATASET.NUM_CLASSES,
                     config.TRAIN.IGNORE_LABEL)
-                if i == 1 and idx == 0:
+                if i == 1 and idx %10 == 0:
+                    # random int within batch size
+                    random_idx = np.random.randint(0, image.size(0))
                     # image: [batch_size, num_channels, height, width]
                     pred2 = torch.argmax(x, dim=1).clone().detach() # [batch_size, height, width]
-                    pred2 = pred2.squeeze(0).cpu().numpy()[0] # [height, width]
+                    pred2 = pred2.squeeze(0).cpu().numpy()[random_idx] # [height, width]
                     # save_img = np.zeros_like(image).astype(np.uint8)
-                    gt_img = image.clone().detach().cpu().numpy()[0].transpose(1, 2, 0)
+                    gt_img = image.clone().detach().cpu().numpy()[random_idx].transpose(1, 2, 0)
                     gt_img = reverse_input_transform(gt_img).astype(np.uint8)
-                    result_img = image.clone().detach().cpu().numpy()[0].transpose(1, 2, 0)
+                    result_img = image.clone().detach().cpu().numpy()[random_idx].transpose(1, 2, 0)
                     result_img = reverse_input_transform(result_img).astype(np.uint8)
-                    label_copy = label.clone().detach().cpu().numpy().astype(np.uint8)[0] # [batch_size, height, width]
+                    label_copy = label.clone().detach().cpu().numpy().astype(np.uint8)[random_idx] # [batch_size, height, width]
                     for color_idx, color in enumerate(color_map):
                         for rgb_idx in range(3):
                             gt_img[:, :, rgb_idx][label_copy == color_idx] = color[rgb_idx]
@@ -196,12 +204,11 @@ def validate(config, testloader, full_model, writer_dict):
                     gt_img = Image.fromarray(gt_img)
                     result_img = Image.fromarray(result_img)
                     save_img = concatenate_two_images(gt_img, result_img)
-                    sv_path = os.path.join(config.DATASET.ROOT, 'val2') # data/val
-                    if not os.path.exists(sv_path):
-                        os.mkdir(sv_path)
-                    time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + '.jpg'
-                    sv_path = os.path.join(sv_path, time)
-                    save_img.save(sv_path)
+                    if not os.path.exists(eval_save_dir):
+                        os.mkdir(eval_save_dir) #
+                    time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+                    save_dir = os.path.join(eval_save_dir, f'{time}.jpg')
+                    save_img.save(save_dir)
             if idx % 10 == 0:
                 print(idx)
 
