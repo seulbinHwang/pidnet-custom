@@ -29,7 +29,7 @@ defined by the different datasets. Supported colormaps are:
 
 import numpy as np
 from six.moves import range
-
+from typing import Dict, List, Tuple
 # Dataset names.
 _ADE20K = 'ade20k'
 _CITYSCAPES = 'cityscapes'
@@ -364,14 +364,15 @@ def create_ade20k_label_colormap():
       [92, 0, 255],
   ])
 
-
-def create_cityscapes_label_colormap():
+ALL_CITYSCAPES_LABELS = [
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,]
+def create_cityscapes_label_colormap(label_indices: List[int]=ALL_CITYSCAPES_LABELS) -> np.ndarray:
   """Creates a label colormap used in CITYSCAPES segmentation benchmark.
 
   Returns:
     A colormap for visualizing segmentation results.
   """
-  colormap = np.zeros((256, 3), dtype=np.uint8)
+  colormap = np.zeros((19, 3), dtype=np.uint8)
   colormap[0] = [128, 64, 128]
   colormap[1] = [244, 35, 232]
   colormap[2] = [70, 70, 70]
@@ -384,6 +385,7 @@ def create_cityscapes_label_colormap():
   colormap[9] = [152, 251, 152]
   colormap[10] = [70, 130, 180]
   colormap[11] = [220, 20, 60]
+  colormap[11] = [123, 123, 243] #
   colormap[12] = [255, 0, 0]
   colormap[13] = [0, 0, 142]
   colormap[14] = [0, 0, 70]
@@ -391,7 +393,11 @@ def create_cityscapes_label_colormap():
   colormap[16] = [0, 80, 100]
   colormap[17] = [0, 0, 230]
   colormap[18] = [119, 11, 32]
-  return colormap
+  num_classes = len(label_indices)
+  extracted_colormap = np.zeros((num_classes, 3), dtype=np.uint8)
+  for idx, label_idx in enumerate(label_indices):
+      extracted_colormap[idx] = colormap[label_idx]
+  return extracted_colormap
 
 
 def create_mapillary_vistas_label_colormap():

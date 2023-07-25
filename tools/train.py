@@ -27,6 +27,7 @@ from configs import update_config
 from utils.criterion import CrossEntropy, OhemCrossEntropy, BoundaryLoss
 from utils import function
 from utils.utils import create_logger, FullModel
+from utils.get_dataset_colormap import create_label_colormap
 
 import platform
 
@@ -57,7 +58,7 @@ def parse_args():
     parser.add_argument(
         '--cfg',
         help='experiment configure file name',
-        default="configs/cityscapes/pidnet_large_cityscapes.yaml",
+        default="configs/cityscapes/pidnet_large_cityscapes.yaml", # configs/ade/pidnet_large_ade.yaml
         type=str)
     parser.add_argument('--seed', type=int, default=304)
     parser.add_argument('--fine_tune', type=bool, default=False)
@@ -113,8 +114,10 @@ def main():
     """
     final_output_dir: 
         "output/cityscapes/pidnet_large_cityscapes"
+        "output/ade/pidnet_large_ade"
     tb_log_dir:
         "log/cityscapes/pidnet_large/pidnet_large_cityscapes_2023-07-19-23-01"
+        "log/ade/pidnet_large/pidnet_large_ade_2023-07-19-23-01"
     """
     logger, final_output_dir, tb_log_dir = create_logger(cfg=config,
                                                          cfg_name=args.cfg,

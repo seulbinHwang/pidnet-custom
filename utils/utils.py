@@ -137,14 +137,19 @@ def create_logger(cfg,
 
     Args:
         cfg: config
-        cfg_name: configs/cityscapes/pidnet_large_cityscapes.yaml
+        cfg_name:
+            configs/cityscapes/pidnet_large_cityscapes.yaml
+            cofings/ade/pidnet_large_ade.yaml
         phase: train or val
 
     Returns:
         logger
-        final_output_dir: output/cityscapes/pidnet_large_cityscapes
+        final_output_dir:
+            output/cityscapes/pidnet_large_cityscapes
+            output/ade/pidnet_large_ade
         tensorboard_log_dir:
             log/cityscapes/pidnet_large_cityscapes/pidnet_large_cityscapes_time
+            log/ade/pidnet_large_ade/pidnet_large_ade_time
     """
     # from pathlib import Path
     root_output_dir = Path(cfg.OUTPUT_DIR)  # "output"
@@ -153,11 +158,12 @@ def create_logger(cfg,
         print('=> creating {}'.format(root_output_dir))
         root_output_dir.mkdir()
 
-    dataset = cfg.DATASET.DATASET  # cityscapes
-    model = cfg.MODEL.NAME  # pidnet_large
-    # cfg_name = pidnet_large_cityscapes
+    dataset = cfg.DATASET.DATASET  # cityscapes / ade
+    model = cfg.MODEL.NAME  # pidnet_large /
+    # cfg_name = pidnet_large_cityscapes / pidnet_large_ade
     cfg_name = os.path.basename(cfg_name).split('.')[0]
     # output/cityscapes/pidnet_large_cityscapes
+    # output/ade/pidnet_large_ade
     final_output_dir = root_output_dir / dataset / cfg_name
 
     print('=> creating {}'.format(final_output_dir))
