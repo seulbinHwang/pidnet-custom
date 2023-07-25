@@ -36,7 +36,7 @@ def parse_args():
     # number of classes
     parser.add_argument('--num_classes',
                         help='number of classes',
-                        default=3,
+                        default=2,
                         type=int)
     parser.add_argument('--pretrained_model_directory',
                         help='dir for pretrained model',
@@ -143,7 +143,7 @@ if __name__ == '__main__':
         3: UNKNOWN_CLASS,
         4: UNKNOWN_CLASS,
         5: UNKNOWN_CLASS,
-        6: UNKNOWN_CLASS,
+        6: 0,
         7: UNKNOWN_CLASS,  # road
         8: UNKNOWN_CLASS,  # sidewalk
         9: UNKNOWN_CLASS,
@@ -161,7 +161,7 @@ if __name__ == '__main__':
         21: UNKNOWN_CLASS,  # vegetation
         22: TERRIAN_CLASS,  # terrain
         23: UNKNOWN_CLASS,  # sky
-        24: 0,  # person
+        24: UNKNOWN_CLASS,  # person
         25: UNKNOWN_CLASS,  # rider
         26: UNKNOWN_CLASS,  # car
         27: UNKNOWN_CLASS,  # truck

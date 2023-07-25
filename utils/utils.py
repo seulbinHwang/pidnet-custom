@@ -25,8 +25,8 @@ class FullModel(nn.Module):
     def __init__(self, model, sem_loss, bd_loss):
         super(FullModel, self).__init__()
         self.model = model  # PIDNet
-        self.sem_loss = sem_loss # OhemCrossEntropy
-        self.bd_loss = bd_loss # BoundaryLoss
+        self.sem_loss = sem_loss  # OhemCrossEntropy
+        self.bd_loss = bd_loss  # BoundaryLoss
 
     def pixel_acc(self, pred, label):
         """
@@ -96,6 +96,7 @@ class FullModel(nn.Module):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.initialized = False
         self.val = None
@@ -129,7 +130,9 @@ class AverageMeter(object):
         return self.avg
 
 
-def create_logger(cfg, cfg_name: str, phase='train') -> Tuple[logging.Logger, str, str]:
+def create_logger(cfg,
+                  cfg_name: str,
+                  phase='train') -> Tuple[logging.Logger, str, str]:
     """
 
     Args:
@@ -191,14 +194,16 @@ def get_confusion_matrix(label, pred, size, num_class, ignore_label=-1):
     Returns:
 
     """
-    output = pred.cpu().numpy().transpose(0, 2, 3, 1) # (batch_size, height, width, 2)
-    seg_pred = np.asarray(np.argmax(output, axis=3), dtype=np.uint8) # (batch_size, height, width)
+    output = pred.cpu().numpy().transpose(0, 2, 3,
+                                          1)  # (batch_size, height, width, 2)
+    seg_pred = np.asarray(np.argmax(output, axis=3),
+                          dtype=np.uint8)  # (batch_size, height, width)
     # size[-2], size[-1] = height, width
     seg_gt = np.asarray(label.cpu().numpy()[:, :size[-2], :size[-1]],
-                        dtype=np.int) # (batch_size, height, width)
-    ignore_index = seg_gt != ignore_label # 중요하면 1, 아니면 0
-    seg_gt = seg_gt[ignore_index] # 중요한 것만 뽑아냄
-    seg_pred = seg_pred[ignore_index] # 중요한 것만 뽑아냄
+                        dtype=np.int)  # (batch_size, height, width)
+    ignore_index = seg_gt != ignore_label  # 중요하면 1, 아니면 0
+    seg_gt = seg_gt[ignore_index]  # 중요한 것만 뽑아냄
+    seg_pred = seg_pred[ignore_index]  # 중요한 것만 뽑아냄
 
     index = (seg_gt * num_class + seg_pred).astype('int32')
     label_count = np.bincount(index)

@@ -23,7 +23,7 @@ class CrossEntropy(nn.Module):
 
     def forward(self, score, target):
 
-        if config.MODEL.NUM_OUTPUTS == 1: # 2
+        if config.MODEL.NUM_OUTPUTS == 1:  # 2
             score = [score]
 
         balance_weights = config.LOSS.BALANCE_WEIGHTS
@@ -43,15 +43,16 @@ class CrossEntropy(nn.Module):
 
 class OhemCrossEntropy(nn.Module):
 
-    def __init__(self,
-                 ignore_label=-1, # 255
-                 thres=0.7, # 0.9
-                 min_kept=100000, # 131072
-                 weight=None): # [ 1.0023,0.9843, ]
+    def __init__(
+            self,
+            ignore_label=-1,  # 255
+            thres=0.7,  # 0.9
+            min_kept=100000,  # 131072
+            weight=None):  # [ 1.0023,0.9843, ]
         super(OhemCrossEntropy, self).__init__()
-        self.thresh = thres # 0.9
-        self.min_kept = max(1, min_kept) # 131072
-        self.ignore_label = ignore_label # 255
+        self.thresh = thres  # 0.9
+        self.min_kept = max(1, min_kept)  # 131072
+        self.ignore_label = ignore_label  # 255
         # weight: [ 1.0023,0.9843, ]
         self.criterion = nn.CrossEntropyLoss(weight=weight,
                                              ignore_index=ignore_label,
@@ -147,11 +148,13 @@ pred 텐서에서 첫 번째 차원(인덱스 1)을 기준으로,
             if loss_version == 0:
                 return sum([
                     w * func(score, target)
-                    for (w, score, func) in zip(balance_weights, scores, functions)
+                    for (w, score,
+                         func) in zip(balance_weights, scores, functions)
                 ])
             else:
                 total_sum = 0
-                for idx, (weight, score, func) in enumerate(zip(balance_weights, scores, functions)):
+                for idx, (weight, score, func) in enumerate(
+                        zip(balance_weights, scores, functions)):
                     # func: _ce_forward, _ohem_forward
                     a = func(score, target)
                     if idx == 0:

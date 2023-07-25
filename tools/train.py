@@ -121,7 +121,7 @@ def main():
                                                          phase='train')
     str_num_class = '_' + str(config.DATASET.NUM_CLASSES) + '_'
     time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")
-    final_output_dir = os.path.join(final_output_dir, str_num_class+time)
+    final_output_dir = os.path.join(final_output_dir, str_num_class + time)
     if not os.path.exists(final_output_dir):
         os.makedirs(final_output_dir)
     logger.info(pprint.pformat(args))
@@ -207,7 +207,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         base_size=config.TRAIN.BASE_SIZE,  # 2048
         crop_size=crop_size,  # (1024, 1024)
         scale_factor=config.TRAIN.SCALE_FACTOR,
-    low_resolution=args.low_resolution)  # 16
+        low_resolution=args.low_resolution)  # 16
     """
         train_dataset: 
             학습에 사용할 데이터셋 객체입니다. 
@@ -254,7 +254,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
         base_size=config.TEST.BASE_SIZE,  # 2048
         crop_size=test_size,
-    low_resolution=args.low_resolution)  # (1024, 2048)
+        low_resolution=args.low_resolution)  # (1024, 2048)
 
     testloader = torch.utils.data.DataLoader(
         test_dataset,
@@ -267,13 +267,15 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     # True
     if config.LOSS.USE_OHEM:
         sem_criterion = OhemCrossEntropy(
-            ignore_label=config.TRAIN.IGNORE_LABEL,  # config.TRAIN.IGNORE_LABEL,  # 255
+            ignore_label=config.TRAIN.
+            IGNORE_LABEL,  # config.TRAIN.IGNORE_LABEL,  # 255
             thres=config.LOSS.OHEMTHRES,  # 0.9
             min_kept=config.LOSS.OHEMKEEP,  # 131072
             weight=train_dataset.class_weights)  # [ 1.0023,0.9843, ]
     else:
         sem_criterion = CrossEntropy(
-            ignore_label=config.TRAIN.IGNORE_LABEL,  # config.TRAIN.IGNORE_LABEL,  # 255
+            ignore_label=config.TRAIN.
+            IGNORE_LABEL,  # config.TRAIN.IGNORE_LABEL,  # 255
             weight=train_dataset.class_weights)  # [ 1.0023,0.9843, ]
 
     bd_criterion = BoundaryLoss()

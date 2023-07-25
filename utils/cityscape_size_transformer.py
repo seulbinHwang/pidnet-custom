@@ -58,13 +58,8 @@ def read_files(img_list) -> List[Dict[str, str]]:
         for item in img_list:
             image_path, label_path = item
             name = os.path.splitext(os.path.basename(label_path))[0]
-            files.append({
-                "img": image_path,
-                "label": label_path,
-                "name": name
-            })
+            files.append({"img": image_path, "label": label_path, "name": name})
     return files
-
 
 
 """
@@ -80,9 +75,7 @@ def read_files(img_list) -> List[Dict[str, str]]:
 """
 root = "./data/"
 list_path = "list/cityscapes/train.lst"
-img_name_list = [
-    line.strip().split() for line in open(root + list_path)
-]
+img_name_list = [line.strip().split() for line in open(root + list_path)]
 # img_name_list = [
 #     'leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png',
 #     'gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png'
@@ -112,7 +105,7 @@ img_name_list = [
 
 files: List[Dict[str, str]] = read_files(img_name_list)
 
-kinds = ["train", "val" , "test"]
+kinds = ["train", "val", "test"]
 for kind in kinds:
     folder_path = f"./data/cityscapes/leftImg8bit/{kind}"
     save_path = f"./data/cityscapes_resized/leftImg8bit/{kind}"
@@ -120,7 +113,6 @@ for kind in kinds:
         os.makedirs(save_path)
     min_size = (180, 180)
     new_size = ((320, 320), (240, 240))
-
 
     # print("Modified paths saved to:", file_path)
     # all folders in 'folder_path' will be resized and saved to 'save_path'
@@ -130,8 +122,8 @@ for kind in kinds:
         if not os.path.exists(sub_save_path):
             os.makedirs(sub_save_path)
         sub_folder_path = os.path.join(folder_path, folder_name)
-        resize_images_in_folder_randomly(sub_folder_path, sub_save_path, min_size, new_size)
-
+        resize_images_in_folder_randomly(sub_folder_path, sub_save_path,
+                                         min_size, new_size)
 
     folder_path = f"./data/cityscapes/gtFine/{kind}"
     save_path = f"./data/cityscapes_resized/gtFine/{kind}"
@@ -146,4 +138,5 @@ for kind in kinds:
         if not os.path.exists(sub_save_path):
             os.makedirs(sub_save_path)
         sub_folder_path = os.path.join(folder_path, folder_name)
-        resize_images_in_folder_randomly(sub_folder_path, sub_save_path, min_size, new_size)
+        resize_images_in_folder_randomly(sub_folder_path, sub_save_path,
+                                         min_size, new_size)
