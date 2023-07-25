@@ -12,7 +12,7 @@ import logging
 import timeit
 
 import numpy as np
-
+import datetime
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -61,6 +61,7 @@ def parse_args():
         type=str)
     parser.add_argument('--seed', type=int, default=304)
     parser.add_argument('--fine_tune', type=bool, default=False)
+    parser.add_argument('--low_resolution', type=bool, default=False)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -118,6 +119,11 @@ def main():
     logger, final_output_dir, tb_log_dir = create_logger(cfg=config,
                                                          cfg_name=args.cfg,
                                                          phase='train')
+    str_num_class = '_' + str(config.DATASET.NUM_CLASSES) + '_'
+    time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")
+    final_output_dir = os.path.join(final_output_dir, str_num_class+time)
+    if not os.path.exists(final_output_dir):
+        os.makedirs(final_output_dir)
     logger.info(pprint.pformat(args))
     logger.info(config)
     """
@@ -153,9 +159,9 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         gpus = [0]
     else:
         gpus = list(config.GPUS)
-        if torch.cuda.device_count() != len(gpus):
-            print("The gpu numbers do not match!")
-            return 0
+        # if torch.cuda.device_count() != len(gpus):
+        #     print("The gpu numbers do not match!")
+        #     return 0
 
     imgnet = 'imagenet' in config.MODEL.PRETRAINED
     # PIDNet
@@ -200,7 +206,8 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
         base_size=config.TRAIN.BASE_SIZE,  # 2048
         crop_size=crop_size,  # (1024, 1024)
-        scale_factor=config.TRAIN.SCALE_FACTOR)  # 16
+        scale_factor=config.TRAIN.SCALE_FACTOR,
+    low_resolution=args.low_resolution)  # 16
     """
         train_dataset: 
             학습에 사용할 데이터셋 객체입니다. 
@@ -246,7 +253,8 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         flip=False,
         ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
         base_size=config.TEST.BASE_SIZE,  # 2048
-        crop_size=test_size)  # (1024, 2048)
+        crop_size=test_size,
+    low_resolution=args.low_resolution)  # (1024, 2048)
 
     testloader = torch.utils.data.DataLoader(
         test_dataset,
@@ -323,6 +331,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     end_epoch = config.TRAIN.END_EPOCH  # 484
     num_iters = config.TRAIN.END_EPOCH * epoch_iters  # 484 * 200 = 96800
     real_end = 120 + 1 if 'camvid' in config.DATASET.TRAIN_SET else end_epoch
+    eval_save_dir = os.path.join(final_output_dir, 'eval')
     # real_end: end_epoch = 484
     for epoch in range(last_epoch, real_end):
         """
@@ -371,7 +380,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
                             epoch < real_end - 100) or (epoch
                                                         >= real_end - 100):
             valid_loss, mean_IoU, IoU_array = function.validate(
-                config, testloader, full_model, writer_dict)
+                config, testloader, full_model, writer_dict, eval_save_dir)
         if flag_rm == 1:
             flag_rm = 0
 
