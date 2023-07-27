@@ -1,6 +1,8 @@
 # ------------------------------------------------------------------------------
 # Modified based on https://github.com/HRNet/HRNet-Semantic-Segmentation
 # ------------------------------------------------------------------------------
+import json
+from typing import List, Dict, Any
 import cv2
 import numpy as np
 import random
@@ -45,6 +47,39 @@ class BaseDataset(data.Dataset):
         image /= self.std
         return image
 
+    def parse_input_list(self, data_list_dir, max_sample=-1, start_idx=-1,
+                         end_idx=-1) -> List[Dict[str, Any]]:
+        """
+
+        :param data_list_dir: "./data/training.odgt"
+{
+"fpath_img": "ADEChallengeData2016/images/training/ADE_train_00000001.jpg",
+"fpath_segm": "ADEChallengeData2016/annotations/training/ADE_train_00000001.png",
+"width": 683,
+"height": 512
+}
+        :param max_sample:
+        :param start_idx:
+        :param end_idx:
+        :return:
+        """
+        if isinstance(data_list_dir, list):
+            list_sample = data_list_dir
+        elif isinstance(data_list_dir, str):
+            list_sample = [json.loads(x.rstrip()) for x in
+                                open(data_list_dir, 'r')]
+        else:
+            raise Exception('Invalid data list dir.')
+        if max_sample > 0:
+            list_sample = list_sample[0:max_sample]
+        if start_idx >= 0 and end_idx >= 0:  # divide file list
+            list_sample = list_sample[start_idx:end_idx]
+
+        self.num_sample = len(list_sample)
+        assert self.num_sample > 0
+        print('# samples: {}'.format(self.num_sample))
+        return list_sample
+
     def label_transform(self, label):
         return np.array(label).astype(np.uint8)
 
@@ -53,19 +88,19 @@ class BaseDataset(data.Dataset):
         pad_h = max(size[0] - h, 0)
         pad_w = max(size[1] - w, 0)
         if pad_h > 0 or pad_w > 0:
-            pad_image = cv2.copyMakeBorder(image,
-                                           0,
-                                           pad_h,
-                                           0,
-                                           pad_w,
-                                           cv2.BORDER_CONSTANT,
+            pad_image = cv2.copyMakeBorder(src=image,
+                                           top=0,
+                                           bottom=pad_h,
+                                           left=0,
+                                           right=pad_w,
+                                           borderType=cv2.BORDER_CONSTANT,
                                            value=padvalue)
 
         return pad_image
 
     def rand_crop(self, image, label, edge):
         h, w = image.shape[:-1]
-        image = self.pad_image(image, h, w, self.crop_size, (0.0, 0.0, 0.0))
+        image = self.pad_image(image, h, w, self.crop_size, (0.0, 0.0, 0.0)) # 최소 1024, 1024
         label = self.pad_image(label, h, w, self.crop_size,
                                (self.ignore_label,))
         edge = self.pad_image(edge, h, w, self.crop_size, (0.0,))

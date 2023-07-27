@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------------------
 
 import os
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 import cv2
 import numpy as np
 from PIL import Image
@@ -37,15 +37,15 @@ else:
 class ADE(BaseDataset):
 
     def __init__(self,
-                 root,
-                 list_path,
-                 num_classes=19,
-                 multi_scale=True,
-                 flip=True,
+                 root, # data/
+                 list_path, # list/ade/training.odgt
+                 num_classes=150,# 2
+                 multi_scale=True, # True
+                 flip=True,# True
                  ignore_label=255,
                  base_size=2048,
-                 crop_size=(512, 1024),
-                 scale_factor=16,
+                 crop_size=(512, 1024), # (1024, 1024)
+                 scale_factor=16, # 16
                  low_resolution=False,
                  mean=[0.485, 0.456, 0.406],
                  std=[0.229, 0.224, 0.225],
@@ -60,63 +60,186 @@ class ADE(BaseDataset):
             std,
         )
 
-        self.root = root # 'data/'
-        # 'list/ade/train.lst'
+        self.root = root # data/
+        # list/ade/training.odgt
         self.list_path = list_path
         self.num_classes = num_classes
         self.low_resolution = low_resolution
         self.multi_scale = multi_scale
         self.flip = flip
-        # data/list/ade/train.lst
-        # e.g.
-        # leftImg8bit/train/unclassified/outliers__bookshelf/ADE_train_00000936_leftImg8bit.jpg
-        # gtFine/train/unclassified/outliers__bookshelf/ADE_train_00000936_gtFine_labelIds.jpg
-        # 예시:
-        # leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
+        # data/list/cityscapes/train.lst
+        # 예시: leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
         # gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png
-        self.img_list = [
-            line.strip().split() for line in open(root + list_path)
-        ]
+        data_list_dir = os.path.join(root, list_path)
+        if list_path.endswith('.lst'):
+            self.img_list: List[List[str]] = [
+                line.strip().split() for line in open(data_list_dir)
+            ]
+        else:
+            self.img_list: List[Dict[str, Any]] = self.parse_input_list(data_list_dir)
+
         # List[Dict[str, str]] # img, label, name
         self.files: List[Dict[str, str]] = self.read_files()
         # check
-        self.label_mapping = {
-            -1: UNKNOWN_CLASS,  #
-            0: UNKNOWN_CLASS,
-            1: UNKNOWN_CLASS,
-            2: UNKNOWN_CLASS,
-            3: UNKNOWN_CLASS,
-            4: UNKNOWN_CLASS,
-            5: UNKNOWN_CLASS,
-            6: UNKNOWN_CLASS,
-            7: UNKNOWN_CLASS,  # road
-            8: UNKNOWN_CLASS,  # sidewalk
-            9: UNKNOWN_CLASS,
-            10: UNKNOWN_CLASS,
-            11: UNKNOWN_CLASS,  # building
-            12: UNKNOWN_CLASS,  # wall
-            13: UNKNOWN_CLASS,  # fence
-            14: UNKNOWN_CLASS,
-            15: UNKNOWN_CLASS,
-            16: UNKNOWN_CLASS,
-            17: UNKNOWN_CLASS,  # pole
-            18: UNKNOWN_CLASS,
-            19: UNKNOWN_CLASS,  # traffic light
-            20: UNKNOWN_CLASS,  # traffic sign
-            21: UNKNOWN_CLASS,  # vegetation
-            22: 1,  # terrain
-            23: UNKNOWN_CLASS,  # sky
-            24: 0,  # person
-            25: 0,  # rider
-            26: UNKNOWN_CLASS,  # car
-            27: UNKNOWN_CLASS,  # truck
-            28: UNKNOWN_CLASS,  # bus
-            29: UNKNOWN_CLASS,
-            30: UNKNOWN_CLASS,
-            31: UNKNOWN_CLASS,  # train
-            32: UNKNOWN_CLASS,  # motorcycle
-            33: UNKNOWN_CLASS  # bicycle /
-        }
+        self.idx_to_class = {
+  "0": "wall",
+  "1": "building",
+  "2": "sky",
+  "3": "floor",
+  "4": "tree",
+  "5": "ceiling",
+  "6": "road",
+  "7": "bed ",
+  "8": "windowpane",
+  "9": "grass",
+  "10": "cabinet",
+  "11": "sidewalk",
+  "12": "person",
+  "13": "earth",
+  "14": "door",
+  "15": "table",
+  "16": "mountain",
+  "17": "plant",
+  "18": "curtain",
+  "19": "chair",
+  "20": "car",
+  "21": "water",
+  "22": "painting",
+  "23": "sofa",
+  "24": "shelf",
+  "25": "house",
+  "26": "sea",
+  "27": "mirror",
+  "28": "rug",
+  "29": "field",
+  "30": "armchair",
+  "31": "seat",
+  "32": "fence",
+  "33": "desk",
+  "34": "rock",
+  "35": "wardrobe",
+  "36": "lamp",
+  "37": "bathtub",
+  "38": "railing",
+  "39": "cushion",
+  "40": "base",
+  "41": "box",
+  "42": "column",
+  "43": "signboard",
+  "44": "chest of drawers",
+  "45": "counter",
+  "46": "sand",
+  "47": "sink",
+  "48": "skyscraper",
+  "49": "fireplace",
+  "50": "refrigerator",
+  "51": "grandstand",
+  "52": "path",
+  "53": "stairs",
+  "54": "runway",
+  "55": "case",
+  "56": "pool table",
+  "57": "pillow",
+  "58": "screen door",
+  "59": "stairway",
+  "60": "river",
+  "61": "bridge",
+  "62": "bookcase",
+  "63": "blind",
+  "64": "coffee table",
+  "65": "toilet",
+  "66": "flower",
+  "67": "book",
+  "68": "hill",
+  "69": "bench",
+  "70": "countertop",
+  "71": "stove",
+  "72": "palm",
+  "73": "kitchen island",
+  "74": "computer",
+  "75": "swivel chair",
+  "76": "boat",
+  "77": "bar",
+  "78": "arcade machine",
+  "79": "hovel",
+  "80": "bus",
+  "81": "towel",
+  "82": "light",
+  "83": "truck",
+  "84": "tower",
+  "85": "chandelier",
+  "86": "awning",
+  "87": "streetlight",
+  "88": "booth",
+  "89": "television receiver",
+  "90": "airplane",
+  "91": "dirt track",
+  "92": "apparel",
+  "93": "pole",
+  "94": "land",
+  "95": "bannister",
+  "96": "escalator",
+  "97": "ottoman",
+  "98": "bottle",
+  "99": "buffet",
+  "100": "poster",
+  "101": "stage",
+  "102": "van",
+  "103": "ship",
+  "104": "fountain",
+  "105": "conveyer belt",
+  "106": "canopy",
+  "107": "washer",
+  "108": "plaything",
+  "109": "swimming pool",
+  "110": "stool",
+  "111": "barrel",
+  "112": "basket",
+  "113": "waterfall",
+  "114": "tent",
+  "115": "bag",
+  "116": "minibike",
+  "117": "cradle",
+  "118": "oven",
+  "119": "ball",
+  "120": "food",
+  "121": "step",
+  "122": "tank",
+  "123": "trade name",
+  "124": "microwave",
+  "125": "pot",
+  "126": "animal",
+  "127": "bicycle",
+  "128": "lake",
+  "129": "dishwasher",
+  "130": "screen",
+  "131": "blanket",
+  "132": "sculpture",
+  "133": "hood",
+  "134": "sconce",
+  "135": "vase",
+  "136": "traffic light",
+  "137": "tray",
+  "138": "ashcan",
+  "139": "fan",
+  "140": "pier",
+  "141": "crt screen",
+  "142": "plate",
+  "143": "monitor",
+  "144": "bulletin board",
+  "145": "shower",
+  "146": "radiator",
+  "147": "glass",
+  "148": "clock",
+  "149": "flag"
+}
+        self.class_to_idx = {v: k for k, v in self.idx_to_class.items()}
+        self.target_classes = ["person", "grass", "ball"]
+        assert len(self.target_classes) + 1 == self.num_classes
+        UNKNOWN_CLASS = len(self.idx_to_class)
+        self.label_mapping = {idx: UNKNOWN_CLASS for idx in range(len(self.idx_to_class))}
+        for idx, target_class in enumerate(self.target_classes):
+            self.label_mapping[self.class_to_idx[target_class]] = idx
         # if IS_MAC:
         #     # check
         #     self.class_weights = torch.FloatTensor([
@@ -128,52 +251,70 @@ class ADE(BaseDataset):
         #         1.0023,
         #         0.0843,
         #     ]).cuda()
-        if IS_MAC:
-            # check
-            self.class_weights = torch.FloatTensor([
-                1.0023,
-                0.3000,
-                0.0843,
-            ]).to(device=device)
+        if self.num_classes == 4:
+            if IS_MAC:
+                # check
+                self.class_weights = torch.FloatTensor([
+                    1.0023,
+                    1.0023,
+                    2.0023,
+                    0.1043,
+                ]).to(device=device)
+            else:
+                self.class_weights = torch.FloatTensor([
+                    1.0023,
+                    1.0023,
+                    2.0023,
+                    0.1043,
+                ]).cuda()
         else:
-            self.class_weights = torch.FloatTensor([
-                1.0023,
-                0.3000,
-                0.0843,
-            ]).cuda()
-
+            raise NotImplementedError
         self.bd_dilate_size = bd_dilate_size
 
     def read_files(self) -> List[Dict[str, str]]:
         files = []
-        # 'list/ade/train.lst'
         if 'test' in self.list_path:
             for item in self.img_list:
-                image_path = item
+                image_path = item["fpath_img"]
+                width = item["width"]
+                height = item["height"]
                 name = os.path.splitext(os.path.basename(image_path[0]))[0]
                 files.append({
                     "img": image_path[0],
                     "name": name,
+                    "width": width,
+                    "height": height,
                 })
         else:
-            # leftImg8bit/train/unclassified/outliers__bookshelf/ADE_train_00000936_leftImg8bit.jpg
-            # gtFine/train/unclassified/outliers__bookshelf/ADE_train_00000936_gtFine_labelIds.jpg
             # image_path:
-            # leftImg8bit/train/unclassified/outliers__bookshelf/ADE_train_00000936_leftImg8bit.jpg
+            # leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
             # label_path:
-            # gtFine/train/unclassified/outliers__bookshelf/ADE_train_00000936_gtFine_labelIds.jpg
+            # gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png
             # name:
-            # ADE_train_00000936_gtFine_labelIds
+            # aachen_000000_000019_gtFine_labelIds
+            """
+{
+"fpath_img": "ADEChallengeData2016/images/training/ADE_train_00000001.jpg",
+"fpath_segm": "ADEChallengeData2016/annotations/training/ADE_train_00000001.png",
+"width": 683,
+"height": 512
+}
+            """
             for item in self.img_list:
-                image_path, label_path = item
-                name = os.path.splitext(os.path.basename(label_path))[0]
+                image_path = item["fpath_img"]
+                label_path = item["fpath_segm"]
+                width = item["width"]
+                height = item["height"]
+                name = os.path.splitext(os.path.basename(label_path))[0] # ADE_train_00000001
                 files.append({
                     "img": image_path,
                     "label": label_path,
-                    "name": name
+                    "name": name,
+                    "width": width,
+                    "height": height,
                 })
         return files
-###### 07.26
+
     def convert_label(self, label, inverse=False):
         temp = label.copy()
         if inverse:
@@ -202,26 +343,39 @@ class ADE(BaseDataset):
         item = self.files[index]
         name = item["name"]  # aachen_000000_000019_gtFine_labelIds
         if self.low_resolution:
+            # root: data/
+            """
+"img": "ADEChallengeData2016/images/training/ADE_train_00000001.jpg",
+"label": "ADEChallengeData2016/annotations/training/ADE_train_00000001.png",
+"name": "ADE_train_00000001",
+"width": 683,
+"height": 512,
+            """
             # leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
-            path = os.path.join(self.root, 'cityscapes_resized', item["img"])
+            path = os.path.join(self.root, 'ade_resized', item["img"])
         else:
-            path = os.path.join(self.root, 'cityscapes', item["img"])
+            path = os.path.join(self.root, 'ade', item["img"])
         image = cv2.imread(path, cv2.IMREAD_COLOR)
         size = image.shape  # (H, w, 3)
 
         if 'test' in self.list_path:
+            # TODO: check!
             image = self.input_transform(image)  # (H, w, 3)
             image = image.transpose((2, 0, 1))  # (3, H, w)
             return image.copy(), np.array(size), name
         # label: gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png
         if self.low_resolution:
-            path = os.path.join(self.root, 'cityscapes_resized', item["label"])
+            path = os.path.join(self.root, 'ade_resized', item["label"])
 
         else:
-            path = os.path.join(self.root, 'cityscapes', item["label"])
+            path = os.path.join(self.root, 'ade', item["label"])
         label = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        label += -1
         # (1024, 2048)
         label = self.convert_label(label)
+        # Let width and height of image and label is divisible by 8.
+        image = image[:-(image.shape[0] % 8), :-(image.shape[1] % 8), :]
+        label = label[:-(label.shape[0] % 8), :-(label.shape[1] % 8)]
         image, label, edge = self.gen_sample(image,
                                              label,
                                              self.multi_scale,

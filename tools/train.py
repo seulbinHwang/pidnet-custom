@@ -22,6 +22,7 @@ from tensorboardX import SummaryWriter
 import _init_paths
 import models
 import datasets
+from datasets.ade import ADE
 from configs import config
 from configs import update_config
 from utils.criterion import CrossEntropy, OhemCrossEntropy, BoundaryLoss
@@ -52,13 +53,13 @@ else:
 
 
 def parse_args():
-    # python tools/train.py --cfg configs/cityscapes/pidnet_large_cityscapes.yaml GPUS "(0,1)" TRAIN.BATCH_SIZE_PER_GPU 6
+    # python tools/train.py --cfg configs/cityscapes/pidnet_large_ade.yaml GPUS "(0,1)" TRAIN.BATCH_SIZE_PER_GPU 6
     parser = argparse.ArgumentParser(description='Train segmentation network')
 
     parser.add_argument(
         '--cfg',
         help='experiment configure file name',
-        default="configs/cityscapes/pidnet_large_cityscapes.yaml", # configs/ade/pidnet_large_ade.yaml
+        default= "configs/cityscapes/pidnet_large_cityscapes.yaml", # "configs/ade/pidnet_large_ade.yaml", #
         type=str)
     parser.add_argument('--seed', type=int, default=304)
     parser.add_argument('--fine_tune', type=bool, default=False)
@@ -198,19 +199,38 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     crop_size: (1024, 1024) / (720, 960)
     SCALE_FACTOR: 16
     """
-    # 1024, 1024
     crop_size = (config.TRAIN.IMAGE_SIZE[1], config.TRAIN.IMAGE_SIZE[0])
-    train_dataset = eval('datasets.' + config.DATASET.DATASET)(
-        root=config.DATASET.ROOT,  # data/
-        list_path=config.DATASET.TRAIN_SET,  # list/cityscapes/train.lst
-        num_classes=config.DATASET.NUM_CLASSES,  # 2
-        multi_scale=config.TRAIN.MULTI_SCALE,  # True
-        flip=config.TRAIN.FLIP,  # True
-        ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
-        base_size=config.TRAIN.BASE_SIZE,  # 2048
-        crop_size=crop_size,  # (1024, 1024)
-        scale_factor=config.TRAIN.SCALE_FACTOR,
-        low_resolution=args.low_resolution)  # 16
+    if config.DATASET.DATASET == 'ade':
+        # Dataset and Loader
+        train_dataset = ADE(
+            root=config.DATASET.ROOT,  # data/
+            list_path=config.DATASET.TRAIN_SET,  # "list/ade/training.odgt"
+            num_classes=config.DATASET.NUM_CLASSES,  # 4
+            multi_scale=config.TRAIN.MULTI_SCALE,  # True
+            flip=config.TRAIN.FLIP,  # True
+            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+            base_size=config.TRAIN.BASE_SIZE,  # 2048
+            crop_size=crop_size,  # (1024, 1024)
+            scale_factor=config.TRAIN.SCALE_FACTOR,
+            low_resolution=config.low_resolution)  # 16
+        # train_dataset = ADETrainDataset(
+        #     root_dataset=config.DATASET.ROOT,  # "./data/"
+        #     odgt=config.DATASET.TRAIN_SET,  # "./data/training.odgt"
+        #     opt=config.DATASET,  #
+        #     batch_per_gpu=config.TRAIN.BATCH_SIZE_PER_GPU)  # 2
+    else:
+        # 1024, 1024
+        train_dataset = eval('datasets.' + config.DATASET.DATASET)(
+            root=config.DATASET.ROOT,  # data/
+            list_path=config.DATASET.TRAIN_SET,  # list/cityscapes/train.lst
+            num_classes=config.DATASET.NUM_CLASSES,  # 2
+            multi_scale=config.TRAIN.MULTI_SCALE,  # True
+            flip=config.TRAIN.FLIP,  # True
+            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+            base_size=config.TRAIN.BASE_SIZE,  # 2048
+            crop_size=crop_size,  # (1024, 1024)
+            scale_factor=config.TRAIN.SCALE_FACTOR,
+            low_resolution=config.low_resolution)  # 16
     """
         train_dataset: 
             학습에 사용할 데이터셋 객체입니다. 
@@ -248,16 +268,26 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     # 1024, 2048
     test_size = (config.TEST.IMAGE_SIZE[1], config.TEST.IMAGE_SIZE[0])
     # cityscapes
-    test_dataset = eval('datasets.' + config.DATASET.DATASET)(
-        root=config.DATASET.ROOT,  # data/
-        list_path=config.DATASET.TEST_SET,  # list/cityscapes/val.lst
-        num_classes=config.DATASET.NUM_CLASSES,  # 2
-        multi_scale=False,
-        flip=False,
-        ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
-        base_size=config.TEST.BASE_SIZE,  # 2048
-        crop_size=test_size,
-        low_resolution=args.low_resolution)  # (1024, 2048)
+    if config.DATASET.DATASET == 'ade':
+        test_dataset = ADE(
+            root=config.DATASET.ROOT,  # data/
+            list_path=config.DATASET.TEST_SET,  # "list/ade/validation.odgt"
+            num_classes=config.DATASET.NUM_CLASSES,  # 4
+            multi_scale=False,
+            flip=False,
+            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+            low_resolution=config.low_resolution)  # 16
+    else:
+        test_dataset = eval('datasets.' + config.DATASET.DATASET)(
+            root=config.DATASET.ROOT,  # data/
+            list_path=config.DATASET.TEST_SET,  # list/cityscapes/val.lst
+            num_classes=config.DATASET.NUM_CLASSES,  # 2
+            multi_scale=False,
+            flip=False,
+            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+            base_size=config.TEST.BASE_SIZE,  # 2048
+            crop_size=test_size,
+            low_resolution=config.low_resolution)  # (1024, 2048)
 
     testloader = torch.utils.data.DataLoader(
         test_dataset,
@@ -416,6 +446,6 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     logger.info('Done')
 
 
-# python tools/train.py --cfg configs/cityscapes/pidnet_large_cityscapes.yaml TRAIN.BATCH_SIZE_PER_GPU 6
+# python tools/train.py --cfg configs/cityscapes/pidnet_large_ade.yaml TRAIN.BATCH_SIZE_PER_GPU 6
 if __name__ == '__main__':
     main()

@@ -50,7 +50,7 @@ def parse_args():
     parser.add_argument(
         '--cfg',
         help='experiment configure file name',
-        default="configs/cityscapes/pidnet_large_cityscapes.yaml",
+        default="configs/cityscapes/pidnet_large_ade.yaml",
         type=str)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
@@ -64,7 +64,7 @@ def parse_args():
 
 
 def main():
-    # python tools/eval.py --cfg configs/cityscapes/pidnet_large_cityscapes.yaml \
+    # python tools/eval.py --cfg configs/cityscapes/pidnet_large_ade.yaml \
     #                           TEST.MODEL_FILE pretrained_models/cityscapes/PIDNet_S_Cityscapes_val.pt
     args = parse_args()
 

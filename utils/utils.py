@@ -138,7 +138,7 @@ def create_logger(cfg,
     Args:
         cfg: config
         cfg_name:
-            configs/cityscapes/pidnet_large_cityscapes.yaml
+            configs/cityscapes/pidnet_large_ade.yaml
             cofings/ade/pidnet_large_ade.yaml
         phase: train or val
 

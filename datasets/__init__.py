@@ -7,5 +7,5 @@ from __future__ import division
 from __future__ import print_function
 
 from .cityscapes import Cityscapes as cityscapes
-from .ade import ADE as ade
+from .ade_original import ADE as ade
 from .camvid import CamVid as camvid

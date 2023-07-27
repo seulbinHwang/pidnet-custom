@@ -34,24 +34,24 @@ else:
     IS_MAC = False
 
 
-class Cityscapes(BaseDataset):
+class ADE(BaseDataset):
 
     def __init__(self,
-                 root, # data/
-                 list_path, # list/cityscapes/train.lst
-                 num_classes=19,# 2
-                 multi_scale=True, # True
-                 flip=True,# True
+                 root, #
+                 list_path,
+                 num_classes=19,
+                 multi_scale=True,
+                 flip=True,
                  ignore_label=255,
                  base_size=2048,
-                 crop_size=(512, 1024), # (1024, 1024)
-                 scale_factor=16, # 16
+                 crop_size=(512, 1024),
+                 scale_factor=16,
                  low_resolution=False,
                  mean=[0.485, 0.456, 0.406],
                  std=[0.229, 0.224, 0.225],
                  bd_dilate_size=4):
 
-        super(Cityscapes, self).__init__(
+        super(ADE, self).__init__(
             ignore_label,
             base_size,
             crop_size,
@@ -60,15 +60,19 @@ class Cityscapes(BaseDataset):
             std,
         )
 
-        self.root = root # data/
-        # 'list/cityscapes/train.lst'
+        self.root = root # 'data/'
+        # 'list/ade/train.lst'
         self.list_path = list_path
         self.num_classes = num_classes
         self.low_resolution = low_resolution
         self.multi_scale = multi_scale
         self.flip = flip
-        # data/list/cityscapes/train.lst
-        # 예시: leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
+        # data/list/ade/train.lst
+        # e.g.
+        # leftImg8bit/train/unclassified/outliers__bookshelf/ADE_train_00000936_leftImg8bit.jpg
+        # gtFine/train/unclassified/outliers__bookshelf/ADE_train_00000936_gtFine_labelIds.jpg
+        # 예시:
+        # leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
         # gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png
         self.img_list = [
             line.strip().split() for line in open(root + list_path)
@@ -142,6 +146,7 @@ class Cityscapes(BaseDataset):
 
     def read_files(self) -> List[Dict[str, str]]:
         files = []
+        # 'list/ade/train.lst'
         if 'test' in self.list_path:
             for item in self.img_list:
                 image_path = item
@@ -151,12 +156,14 @@ class Cityscapes(BaseDataset):
                     "name": name,
                 })
         else:
+            # leftImg8bit/train/unclassified/outliers__bookshelf/ADE_train_00000936_leftImg8bit.jpg
+            # gtFine/train/unclassified/outliers__bookshelf/ADE_train_00000936_gtFine_labelIds.jpg
             # image_path:
-            # leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
+            # leftImg8bit/train/unclassified/outliers__bookshelf/ADE_train_00000936_leftImg8bit.jpg
             # label_path:
-            # gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png
+            # gtFine/train/unclassified/outliers__bookshelf/ADE_train_00000936_gtFine_labelIds.jpg
             # name:
-            # aachen_000000_000019_gtFine_labelIds
+            # ADE_train_00000936_gtFine_labelIds
             for item in self.img_list:
                 image_path, label_path = item
                 name = os.path.splitext(os.path.basename(label_path))[0]
@@ -166,7 +173,7 @@ class Cityscapes(BaseDataset):
                     "name": name
                 })
         return files
-
+###### 07.26
     def convert_label(self, label, inverse=False):
         temp = label.copy()
         if inverse:
@@ -191,12 +198,20 @@ class Cityscapes(BaseDataset):
                 0, 1, 255 로만 이루어져 있음.
             edge: (height, width)
                 0, 1(edge임) 로만 이루어져 있음
+
+# image_path:
+# leftImg8bit/train/unclassified/outliers__bookshelf/ADE_train_00000936_leftImg8bit.jpg
+# label_path:
+# gtFine/train/unclassified/outliers__bookshelf/ADE_train_00000936_gtFine_labelIds.jpg
+# name:
+# ADE_train_00000936_gtFine_labelIds
         """
         item = self.files[index]
-        name = item["name"]  # aachen_000000_000019_gtFine_labelIds
+        name = item["name"]  # ADE_train_00000936_gtFine_labelIds
         if self.low_resolution:
             # leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
-            path = os.path.join(self.root, 'cityscapes_resized', item["img"])
+            raise ValueError # TODO
+            # path = os.path.join(self.root, 'cityscapes_resized', item["img"])
         else:
             path = os.path.join(self.root, 'cityscapes', item["img"])
         image = cv2.imread(path, cv2.IMREAD_COLOR)
@@ -208,10 +223,11 @@ class Cityscapes(BaseDataset):
             return image.copy(), np.array(size), name
         # label: gtFine/train/aachen/aachen_000000_000019_gtFine_labelIds.png
         if self.low_resolution:
-            path = os.path.join(self.root, 'cityscapes_resized', item["label"])
+            path = os.path.join(self.root, 'ade_resized', item["label"])
 
         else:
-            path = os.path.join(self.root, 'cityscapes', item["label"])
+            # data/ade/gtFine/train/unclassified/outliers__bookshelf/ADE_train_00000936_gtFine_labelIds.jpg
+            path = os.path.join(self.root, 'ade', item["label"])
         label = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
         # (1024, 2048)
         label = self.convert_label(label)

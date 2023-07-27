@@ -1,7 +1,7 @@
 """
 - ADE20k 데이터셋에서, person/wall이 있는 dataset 만들기
-    - ADE
-        - training (validation) (~/Downloads/ADE20K_2021_17_01/images/ADE)
+    - ade
+        - training (validation) (~/Downloads/ADE20K_2021_17_01/images/ade)
             - 폴더 뭉치 As 다 구하기
                 - for A in As:
                     - 폴더 뭉치 Bs다 구하기
@@ -10,8 +10,8 @@
                                 - for list in lists:
                                     - jpg, _seg.png = list
                                     - ```data/list/trainval.lst```(```data/list/val.lst```)+ 가 없으면 만든 후, 열어서, 한줄 적고 줄 엔터를 합니다.
-                                    - jpg를 ```data/ADE/leftImg8bit/train/A/B```(```data/ADE/leftImg8bit/val/A/B```) 로 옮깁니다. (없으면 폴더 생성합니다.)
-                                    - _seg.png를 ```data/ADE/gt_Fine/train/A/B```(```data/ADE/gt_Fine/val/A/B```)로 옮깁니다. (없으면 폴더 생성합니다.)
+                                    - jpg를 ```data/ade/leftImg8bit/train/A/B```(```data/ade/leftImg8bit/val/A/B```) 로 옮깁니다. (없으면 폴더 생성합니다.)
+                                    - _seg.png를 ```data/ade/gt_Fine/train/A/B```(```data/ade/gt_Fine/val/A/B```)로 옮깁니다. (없으면 폴더 생성합니다.)
 
 DATASET_NUMBER = 27566
 """
@@ -74,10 +74,10 @@ save_leftImg8bit_dataset_path = os.path.expanduser(
     "~/PycharmProjects/pidnet-custom/data/ade/leftImg8bit")
 original_training_dataset_path = os.path.join(
     original_dataset_path,
-    "training")  # "~/Downloads/ADE20K_2021_17_01/images/ADE/training"
+    "training")  # "~/Downloads/ADE20K_2021_17_01/images/ade/training"
 original_validation_dataset_path = os.path.join(
     original_dataset_path,
-    "validation")  # "~/Downloads/ADE20K_2021_17_01/images/ADE/validation"
+    "validation")  # "~/Downloads/ADE20K_2021_17_01/images/ade/validation"
 # find all folders in original_training_dataset_path
 original_training_folders = os.listdir(original_training_dataset_path)
 # remove .DS_Store
@@ -105,12 +105,12 @@ for idx, original_folders in enumerate([
     if idx == 0:
         category = "train"
         lst_paths = [trainval_lst_path, train_lst_path]
-        # "~/Downloads/ADE20K_2021_17_01/images/ADE/training"
+        # "~/Downloads/ADE20K_2021_17_01/images/ade/training"
         original_top_dataset_path = original_training_dataset_path
     else:
         category = "val"
         lst_paths = [trainval_lst_path, val_lst_path]
-        # "~/Downloads/ADE20K_2021_17_01/images/ADE/validation"
+        # "~/Downloads/ADE20K_2021_17_01/images/ade/validation"
         original_top_dataset_path = original_validation_dataset_path
     # original_folders:  ['nature_landscape', 'transportation', 'urban', 'sports_and_leisure', 'unclassified', 'home_or_hotel', 'industrial', 'work_place', 'shopping_and_dining', 'cultural']
     for original_folder in original_folders:
@@ -172,17 +172,14 @@ for idx, original_folders in enumerate([
             # Copy jpg_file to save_leftImg8bit_dataset_path using copy_file function.
             # save_leftImg8bit_dataset_path: "~/PycharmProjects/pidnet-custom/data/ade/leftImg8bit"
             for original_jpg_and_seg_png in original_jpgs_and_seg_pngs:
-
                 jpg_file, seg_png_file = original_jpg_and_seg_png
-                seg_jpg_file = seg_png_file.replace(
-                    "_seg.png", ".jpg")
                 save_leftImg8bit_path = os.path.join(
                     save_leftImg8bit_dataset_path, category,
                     original_folder, original_sub_folder)
 
                 if not os.path.exists(save_leftImg8bit_path):
                     os.makedirs(save_leftImg8bit_path)
-                # original_top_dataset_path: "~/Downloads/ADE20K_2021_17_01/images/ADE/training"
+                # original_top_dataset_path: "~/Downloads/ADE20K_2021_17_01/images/ade/training"
                 source_file = os.path.join(
                     original_top_dataset_path, original_folder,
                     original_sub_folder, jpg_file)
@@ -193,8 +190,13 @@ for idx, original_folders in enumerate([
                     save_leftImg8bit_path, jpg_file)
                 suffix = "_leftImg8bit.jpg"
                 suffix_jpg_file = jpg_file.replace(".jpg", suffix)
-                os.rename(source_file, suffix_jpg_file)
+                rename_file = os.path.join(save_leftImg8bit_path,
+                                           suffix_jpg_file)
+                os.rename(source_file, rename_file)
                 #
+
+
+
                 # Change seg_png_file to seg_jpg_file and save it to save_gtFine_dataset_path.
                 # save_gtFine_dataset_path: "~/PycharmProjects/pidnet-custom/data/ade/gtFine"
                 save_gtFine_path = os.path.join(
@@ -213,9 +215,9 @@ for idx, original_folders in enumerate([
                 source_file = os.path.join(save_gtFine_path,
                                            seg_png_file)
                 suffix = "_gtFine_labelIds.jpg"
-                seg_jpg_file = seg_png_file.replace(".jpg", suffix)
+                suffix_jpg_file = seg_png_file.replace("_seg.png", suffix)
                 rename_file = os.path.join(save_gtFine_path,
-                                           seg_jpg_file)
+                                           suffix_jpg_file)
                 # Rename from png to jpg.
                 os.rename(source_file, rename_file)
 #                 # laod rename_file using cv2.imread
