@@ -103,7 +103,6 @@ pred 텐서에서 첫 번째 차원(인덱스 1)을 기준으로,
         # unsqueezed_ignore_removed_target: (batch_size, 1, height, width)
         pred = pred.gather(1, unsqueezed_ignore_removed_target)
         # pred:  (batch_size, 1, height, width)
-
         pred, ind = pred.contiguous().view(-1,)[mask].contiguous().sort()
         # pred.shape : batch_size * height * width -> mask True인 것만 예측값이 큰 순서로 정렬
         # ind.shape : batch_size * height * width -> mask True인 것만 예측값이 큰 순서로 정렬

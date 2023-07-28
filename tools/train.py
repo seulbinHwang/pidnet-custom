@@ -5,6 +5,7 @@
 import argparse
 import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 import pprint
 
@@ -69,7 +70,8 @@ def load_pretrained(model, pretrained_directory):
 
     return model
 
-
+# python tools/train.py --cfg configs/ade/pidnet_large_ade_fine_tune.yaml --fine_tune True GPUS "(0,)" TRAIN.BATCH_SIZE_PER_GPU 6
+# python tools/train.py --cfg configs/ade/pidnet_large_ade.yaml GPUS "(0,)" TRAIN.BATCH_SIZE_PER_GPU 6
 def parse_args():
     # python tools/train.py --cfg configs/cityscapes/pidnet_large_ade.yaml GPUS "(0,1)" TRAIN.BATCH_SIZE_PER_GPU 6
     parser = argparse.ArgumentParser(description='Train segmentation network')
@@ -77,7 +79,7 @@ def parse_args():
     parser.add_argument(
         '--cfg',
         help='experiment configure file name',
-        default= "configs/ade/pidnet_large_ade.yaml",#"configs/cityscapes/pidnet_large_cityscapes.yaml", #  #
+        default=  "configs/ade/pidnet_large_ade.yaml",#"configs/cityscapes/pidnet_large_cityscapes.yaml",# #, #  #
         type=str)
     parser.add_argument('--seed', type=int, default=304)
     parser.add_argument('--fine_tune', type=bool, default=False)

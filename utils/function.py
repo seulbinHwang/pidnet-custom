@@ -33,12 +33,7 @@ def concatenate_two_images(original_gt_img, gt_img, result_img):
 # (152, 251, 152),  # terrain (nature) 지역
 # (220, 20, 60),  # person
 # ]
-color_map = [
-    (0, 0, 255),  # person # blue.
-    (0, 255, 0),  # grass # green
-    (255, 255, 0),  # ball, # yellow
-    (135, 206, 235)  # background # black
-]
+
 
 
 def reverse_input_transform(image, city=True):
@@ -186,6 +181,23 @@ def validate(config, testloader, full_model, writer_dict, eval_save_dir):
                                   size=size[-2:], # [height, width]
                                   mode='bilinear',
                                   align_corners=config.MODEL.ALIGN_CORNERS)
+                num_class = pred_i.size(1)  # 2
+                if num_class == 3:
+                    color_map = [
+                        (0, 0, 255),  # person # blue.
+                        (0, 255, 0),  # grass # green
+                        # (255, 255, 0),  # ball, # yellow
+                        (135, 206, 235)  # background # black
+                    ]
+                elif num_class == 4:
+                    color_map = [
+                        (0, 0, 255),  # person # blue.
+                        (0, 255, 0),  # grass # green
+                        (255, 255, 0),  # ball, # yellow
+                        (135, 206, 235)  # background # black
+                    ]
+                else:
+                    raise NotImplementedError
                 # pred_i: [batch_size, num_class, height, width]
                 # confusion_matrix: [num_classes, num_classes, NUM_OUTPUTS]
                 confusion_matrix[..., i] += get_confusion_matrix(

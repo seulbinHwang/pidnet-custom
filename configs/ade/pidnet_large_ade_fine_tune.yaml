@@ -13,7 +13,7 @@ DATASET:
   ROOT: data/ # root_dataset
   TEST_SET: "list/ade/extracted_validation.odgt"  #
   TRAIN_SET: "list/ade/extracted_training.odgt" # list_train
-  NUM_CLASSES: 4
+  NUM_CLASSES: 3
 MODEL:
   NAME: pidnet_large
   NUM_OUTPUTS: 2
@@ -42,7 +42,7 @@ TRAIN:
   FLIP: true
   MULTI_SCALE: true
   IGNORE_LABEL: 255
-  SCALE_FACTOR: 35
+  SCALE_FACTOR: 25
 TEST:
   IMAGE_SIZE:
   - 1024

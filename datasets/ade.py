@@ -234,7 +234,10 @@ class ADE(BaseDataset):
   "149": "flag"
 }
         self.class_to_idx = {v: int(k) for k, v in self.idx_to_class.items()}
-        self.target_classes = ["person", "grass", "ball"]
+        if self.num_classes == 3:
+            self.target_classes = ["person", "grass"] # "ball"
+        elif self.num_classes == 4:
+            self.target_classes = ["person", "grass", "ball"]
         assert len(self.target_classes) + 1 == self.num_classes
         UNKNOWN_CLASS = len(self.idx_to_class)
         self.label_mapping = {idx: UNKNOWN_CLASS for idx in range(len(self.idx_to_class))}
@@ -267,8 +270,20 @@ class ADE(BaseDataset):
                     2.0023,
                     0.1043,
                 ]).cuda()
-        else:
-            raise NotImplementedError
+        elif self.num_classes == 3:
+            if IS_MAC:
+                # check
+                self.class_weights = torch.FloatTensor([
+                    1.0023,
+                    0.5023,
+                    0.1043,
+                ]).to(device=device)
+            else:
+                self.class_weights = torch.FloatTensor([
+                    1.0023,
+                    0.5023,
+                    0.1043,
+                ]).cuda()
         self.bd_dilate_size = bd_dilate_size
 
     def read_files(self) -> List[Dict[str, str]]:
