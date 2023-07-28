@@ -28,8 +28,6 @@ from configs import update_config
 from utils.criterion import CrossEntropy, OhemCrossEntropy, BoundaryLoss
 from utils import function
 from utils.utils import create_logger, FullModel
-from utils.get_dataset_colormap import create_label_colormap
-
 import platform
 
 import torch
@@ -201,7 +199,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
 
         # Freeze all layers except the last head
         for name, param in model.named_parameters():
-            if 'head' not in name:
+            if 'head' not in name or "final" not in name:
                 param.requires_grad = False
     ###################
 
