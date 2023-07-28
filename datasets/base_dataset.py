@@ -100,10 +100,10 @@ class BaseDataset(data.Dataset):
 
     def rand_crop(self, image, label, edge):
         h, w = image.shape[:-1]
-        image = self.pad_image(image, h, w, self.crop_size, (0.0, 0.0, 0.0)) # 최소 1024, 1024
+        image = self.pad_image(image, h, w, self.crop_size, padvalue=(0.0, 0.0, 0.0)) # 최소 1024, 1024
         label = self.pad_image(label, h, w, self.crop_size,
-                               (self.ignore_label,))
-        edge = self.pad_image(edge, h, w, self.crop_size, (0.0,))
+                               padvalue=(self.ignore_label,)) # 255
+        edge = self.pad_image(edge, h, w, self.crop_size, padvalue=(0.0,))
 
         new_h, new_w = label.shape
         x = random.randint(0, new_w - self.crop_size[1])

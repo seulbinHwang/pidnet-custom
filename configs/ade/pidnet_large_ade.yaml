@@ -11,8 +11,8 @@ PRINT_FREQ: 10
 DATASET:
   DATASET: ade
   ROOT: data/ # root_dataset
-  TEST_SET: "list/ade/validation.odgt"  #
-  TRAIN_SET: "list/ade/training.odgt" # list_train
+  TEST_SET: "list/ade/extracted_validation.odgt"  #
+  TRAIN_SET: "list/ade/extracted_training.odgt" # list_train
   NUM_CLASSES: 4
 MODEL:
   NAME: pidnet_large
@@ -28,7 +28,7 @@ TRAIN:
   IMAGE_SIZE:
   - 1024
   - 1024
-  BASE_SIZE: 2048
+  BASE_SIZE: 512
   BATCH_SIZE_PER_GPU: 6 # batch_size_per_gpu
   SHUFFLE: true
   BEGIN_EPOCH: 0
@@ -42,14 +42,14 @@ TRAIN:
   FLIP: true
   MULTI_SCALE: true
   IGNORE_LABEL: 255
-  SCALE_FACTOR: 25
+  SCALE_FACTOR: 35
 TEST:
   IMAGE_SIZE:
   - 1024
   - 1024
-  BASE_SIZE: 2048
+  BASE_SIZE: 512
   BATCH_SIZE_PER_GPU: 6
   FLIP_TEST: false
-  MULTI_SCALE: false
+  MULTI_SCALE: true
   MODEL_FILE: ''
   OUTPUT_INDEX: 1

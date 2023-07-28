@@ -31,11 +31,11 @@ def parse_args():
     # number of classes
     parser.add_argument('--num_classes',
                         help='number of classes',
-                        default=2,
+                        default=3,
                         type=int)
     parser.add_argument('--pretrained_model_directory',
                         help='dir for pretrained model',
-                        default='./pretrained_models/cityscapes/best_2.pt',
+                        default='./pretrained_models/cityscapes/best_3_0727.pt',
                         type=str)
     parser.add_argument('--image_root_directory',
                         help='root or dir for input images',
@@ -44,7 +44,7 @@ def parse_args():
     # resized_data
     parser.add_argument('--image_directory',
                         help='image_directory',
-                        default='resized_data_from_video',
+                        default='raw_data_from_video',
                         type=str)
     parser.add_argument('--image_format',
                         help='the format of input images (.jpg, .png, ...)',
@@ -74,12 +74,6 @@ def load_pretrained(model, pretrained_directory):
         for k, v in pretrained_dict.items()
         if (k[6:] in model_dict and v.shape == model_dict[k[6:]].shape)
     }
-    # pretrained_dict = {}
-    # for k, v in pretrained_dict.items():
-    #     key_without_prefix = k[6:]
-    #     if key_without_prefix in model_dict and v.shape == model_dict[
-    #         key_without_prefix].shape:
-    #         pretrained_dict[key_without_prefix] = v
     msg = 'Loaded {} parameters!'.format(len(pretrained_dict))
     print('Attention!!!')
     print(msg)
@@ -156,8 +150,8 @@ if __name__ == '__main__':
             original_image = cv2.imread(
                 os.path.join(args.image_root_directory, args.image_directory,
                              img_name), cv2.IMREAD_COLOR)
-            original_image = cv2.resize(original_image, (1024, 1024),
-                                        interpolation=cv2.INTER_LINEAR)
+            # original_image = cv2.resize(original_image, (1024, 1024),
+            #                             interpolation=cv2.INTER_LINEAR)
             # 1024 -> 128 (1/8배)
             segment_result_image = np.zeros_like(original_image).astype(
                 np.uint8)

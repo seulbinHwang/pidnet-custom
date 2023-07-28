@@ -233,7 +233,7 @@ class ADE(BaseDataset):
   "148": "clock",
   "149": "flag"
 }
-        self.class_to_idx = {v: k for k, v in self.idx_to_class.items()}
+        self.class_to_idx = {v: int(k) for k, v in self.idx_to_class.items()}
         self.target_classes = ["person", "grass", "ball"]
         assert len(self.target_classes) + 1 == self.num_classes
         UNKNOWN_CLASS = len(self.idx_to_class)
@@ -369,13 +369,22 @@ class ADE(BaseDataset):
 
         else:
             path = os.path.join(self.root, 'ade', item["label"])
-        label = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        label = cv2.imread(path, cv2.IMREAD_UNCHANGED).astype(np.int16)
         label += -1
+        label = label.astype(np.uint8)
         # (1024, 2048)
         label = self.convert_label(label)
         # Let width and height of image and label is divisible by 8.
-        image = image[:-(image.shape[0] % 8), :-(image.shape[1] % 8), :]
-        label = label[:-(label.shape[0] % 8), :-(label.shape[1] % 8)]
+        # print shape
+        H, W, C = image.shape
+
+        # H, W 가 8의 배수가 아니면, 8의 배수가 되도록.
+        new_H = int(np.ceil(H / 8) * 8)
+        new_W = int(np.ceil(W / 8) * 8)
+
+        # 리사이즈
+        image = cv2.resize(image, (new_W, new_H))
+        label = cv2.resize(label, (new_W, new_H), interpolation=cv2.INTER_NEAREST)
         image, label, edge = self.gen_sample(image,
                                              label,
                                              self.multi_scale,

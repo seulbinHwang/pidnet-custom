@@ -52,6 +52,26 @@ else:
     IS_MAC = False
 
 
+def load_pretrained(model, pretrained_directory):
+    pretrained_dict = torch.load(pretrained_directory, map_location='cpu')
+    if 'state_dict' in pretrained_dict:
+        pretrained_dict = pretrained_dict['state_dict']
+    model_dict = model.state_dict()
+    pretrained_dict = {
+        k[6:]: v
+        for k, v in pretrained_dict.items()
+        if (k[6:] in model_dict and v.shape == model_dict[k[6:]].shape)
+    }
+    msg = 'Loaded {} parameters!'.format(len(pretrained_dict))
+    print('Attention!!!')
+    print(msg)
+    print('Over!!!')
+    model_dict.update(pretrained_dict)
+    model.load_state_dict(model_dict, strict=False)
+
+    return model
+
+
 def parse_args():
     # python tools/train.py --cfg configs/cityscapes/pidnet_large_ade.yaml GPUS "(0,1)" TRAIN.BATCH_SIZE_PER_GPU 6
     parser = argparse.ArgumentParser(description='Train segmentation network')
@@ -59,10 +79,14 @@ def parse_args():
     parser.add_argument(
         '--cfg',
         help='experiment configure file name',
-        default= "configs/cityscapes/pidnet_large_cityscapes.yaml", # "configs/ade/pidnet_large_ade.yaml", #
+        default= "configs/ade/pidnet_large_ade.yaml",#"configs/cityscapes/pidnet_large_cityscapes.yaml", #  #
         type=str)
     parser.add_argument('--seed', type=int, default=304)
     parser.add_argument('--fine_tune', type=bool, default=False)
+    parser.add_argument('--pretrained_model_directory',
+                        help='dir for pretrained model',
+                        default='./pretrained_models/cityscapes/best_3_0727.pt',
+                        type=str)
     parser.add_argument('--low_resolution', type=bool, default=False)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
@@ -173,12 +197,11 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
 
     ###################
     if args.fine_tune:
-        # Load pre-trained weights
-        model.load_state_dict(torch.load("PIDNet_L_Cityscapes_test.pt"))
+        model = load_pretrained(model, args.pretrained_model_directory)
 
         # Freeze all layers except the last head
         for name, param in model.named_parameters():
-            if 'head' not in name:  # You may need to adjust this condition based on the actual structure of the model
+            if 'head' not in name:
                 param.requires_grad = False
     ###################
 
@@ -212,7 +235,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             base_size=config.TRAIN.BASE_SIZE,  # 2048
             crop_size=crop_size,  # (1024, 1024)
             scale_factor=config.TRAIN.SCALE_FACTOR,
-            low_resolution=config.low_resolution)  # 16
+            low_resolution=args.low_resolution)  # 16
         # train_dataset = ADETrainDataset(
         #     root_dataset=config.DATASET.ROOT,  # "./data/"
         #     odgt=config.DATASET.TRAIN_SET,  # "./data/training.odgt"
@@ -230,7 +253,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             base_size=config.TRAIN.BASE_SIZE,  # 2048
             crop_size=crop_size,  # (1024, 1024)
             scale_factor=config.TRAIN.SCALE_FACTOR,
-            low_resolution=config.low_resolution)  # 16
+            low_resolution=args.low_resolution)  # 16
     """
         train_dataset: 
             학습에 사용할 데이터셋 객체입니다. 
@@ -273,10 +296,12 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             root=config.DATASET.ROOT,  # data/
             list_path=config.DATASET.TEST_SET,  # "list/ade/validation.odgt"
             num_classes=config.DATASET.NUM_CLASSES,  # 4
-            multi_scale=False,
+            multi_scale=config.TEST.MULTI_SCALE,
             flip=False,
             ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
-            low_resolution=config.low_resolution)  # 16
+            base_size=config.TEST.BASE_SIZE,  # 2048
+            crop_size=test_size,
+            low_resolution=args.low_resolution)  # 16
     else:
         test_dataset = eval('datasets.' + config.DATASET.DATASET)(
             root=config.DATASET.ROOT,  # data/
@@ -287,7 +312,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
             base_size=config.TEST.BASE_SIZE,  # 2048
             crop_size=test_size,
-            low_resolution=config.low_resolution)  # (1024, 2048)
+            low_resolution=args.low_resolution)  # (1024, 2048)
 
     testloader = torch.utils.data.DataLoader(
         test_dataset,

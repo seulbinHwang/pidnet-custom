@@ -25,8 +25,8 @@ VALIDATE_COUNT = 0
 
 
 # gt_img, result_img
-def concatenate_two_images(gt_img, result_img):
-    return Image.fromarray(np.hstack((np.array(gt_img), np.array(result_img))))
+def concatenate_two_images(original_gt_img, gt_img, result_img):
+    return Image.fromarray(np.hstack((np.array(original_gt_img), np.array(gt_img), np.array(result_img))))
 
 
 # color_map = [
@@ -34,16 +34,17 @@ def concatenate_two_images(gt_img, result_img):
 # (220, 20, 60),  # person
 # ]
 color_map = [
-    (152, 251, 152),  # person
-    (220, 20, 60),  # unknown
-    (70, 130, 180)  # terrain
+    (0, 0, 255),  # person # blue.
+    (0, 255, 0),  # grass # green
+    (255, 255, 0),  # ball, # yellow
+    (135, 206, 235)  # background # black
 ]
 
 
 def reverse_input_transform(image, city=True):
     image = image.astype(np.float32)  # Add this line
-    image *= [0.485, 0.456, 0.406]
-    image += [0.229, 0.224, 0.225]
+    image *= [0.229, 0.224, 0.225]
+    image += [0.485, 0.456, 0.406]
     image *= 255.0
     if city:  # If original was BGR, convert back
         image = image[:, :, ::-1].astype(np.uint8)
@@ -168,56 +169,56 @@ def validate(config, testloader, full_model, writer_dict, eval_save_dir):
             image, label, bd_gts, _, name = batch
             size = label.size()
             if IS_MAC:
-                image = image.to(device)
+                image = image.to(device) # [batch_size, num_channels, height, width]
                 label = label.long().to(device)  # [batch_size, height, width]
-                bd_gts = bd_gts.float().to(device)
+                bd_gts = bd_gts.float().to(device) # [batch_size, height, width]
             else:
                 image = image.cuda()
                 label = label.long().cuda()
                 bd_gts = bd_gts.float().cuda()
+            batch_size = image.size(0)
             # pred: [(batch_size, 2, height, width), (batch_size, 2, height, width)]
             losses, pred, _, _ = full_model(image, label, bd_gts)
             if not isinstance(pred, (list, tuple)):
                 pred = [pred]
-            for i, x in enumerate(pred):
-                x = F.interpolate(input=x,
-                                  size=size[-2:],
+            for i, pred_i in enumerate(pred):
+                pred_i = F.interpolate(input=pred_i,
+                                  size=size[-2:], # [height, width]
                                   mode='bilinear',
                                   align_corners=config.MODEL.ALIGN_CORNERS)
-                # x: [batch_size, 2, height, width]
+                # pred_i: [batch_size, num_class, height, width]
                 # confusion_matrix: [num_classes, num_classes, NUM_OUTPUTS]
                 confusion_matrix[..., i] += get_confusion_matrix(
-                    label, x, size, config.DATASET.NUM_CLASSES,
+                    label, pred_i, size, config.DATASET.NUM_CLASSES,
                     config.TRAIN.IGNORE_LABEL)
                 if i == 1 and idx % 10 == 0:
                     # random int within batch size
-                    random_idx = np.random.randint(0, image.size(0))
+                    rand_idx_in_batch = np.random.randint(0, batch_size)
                     # image: [batch_size, num_channels, height, width]
-                    pred2 = torch.argmax(
-                        x,
+                    argmax_pred = torch.argmax(
+                        pred_i,
                         dim=1).clone().detach()  # [batch_size, height, width]
-                    pred2 = pred2.squeeze(0).cpu().numpy()[
-                        random_idx]  # [height, width]
+                    hw_pred = argmax_pred.squeeze(0).cpu().numpy()[
+                        rand_idx_in_batch]  # [height, width]
                     # save_img = np.zeros_like(image).astype(np.uint8)
                     gt_img = image.clone().detach().cpu().numpy(
-                    )[random_idx].transpose(1, 2, 0)
-                    gt_img = reverse_input_transform(gt_img).astype(np.uint8)
-                    result_img = image.clone().detach().cpu().numpy(
-                    )[random_idx].transpose(1, 2, 0)
-                    result_img = reverse_input_transform(result_img).astype(
-                        np.uint8)
+                    )[rand_idx_in_batch].transpose(1, 2, 0) # [height, width, num_channels]
+                    original_gt_img = reverse_input_transform(gt_img).astype(np.uint8)
+                    gt_img = np.zeros_like(gt_img).astype(np.uint8)
+                    result_img = gt_img.copy()
                     label_copy = label.clone().detach().cpu().numpy().astype(
-                        np.uint8)[random_idx]  # [batch_size, height, width]
+                        np.uint8)[rand_idx_in_batch]  # [height, width]
                     for color_idx, color in enumerate(color_map):
                         for rgb_idx in range(3):
                             gt_img[:, :, rgb_idx][label_copy ==
                                                   color_idx] = color[rgb_idx]
                             result_img[:, :, rgb_idx][
-                                pred2 == color_idx] = color[rgb_idx]
+                                hw_pred == color_idx] = color[rgb_idx]
                     # save_img = Image.fromarray(save_img)
+                    original_gt_img = Image.fromarray(original_gt_img)
                     gt_img = Image.fromarray(gt_img)
                     result_img = Image.fromarray(result_img)
-                    save_img = concatenate_two_images(gt_img, result_img)
+                    save_img = concatenate_two_images(original_gt_img, gt_img, result_img)
                     if not os.path.exists(eval_save_dir):
                         os.mkdir(eval_save_dir)  #
                     time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
