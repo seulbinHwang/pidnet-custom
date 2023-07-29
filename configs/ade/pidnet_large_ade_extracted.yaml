@@ -11,8 +11,8 @@ PRINT_FREQ: 10
 DATASET:
   DATASET: ade
   ROOT: data/ # root_dataset
-  TEST_SET: "list/ade/validation.odgt"  #
-  TRAIN_SET: "list/ade/training.odgt" # list_train
+  TEST_SET: "list/ade/extracted_validation.odgt"  #
+  TRAIN_SET: "list/ade/extracted_training.odgt" # list_train
   NUM_CLASSES: 4
 MODEL:
   NAME: pidnet_large
