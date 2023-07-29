@@ -217,7 +217,7 @@ def main():
         root=config.DATASET.ROOT,  # data/
         list_path=config.DATASET.TEST_SET,  # list/cityscapes/val.lst
         num_classes=config.DATASET.NUM_CLASSES,  # 2
-        multi_scale=False,
+        multi_scale=config.TEST.MULTI_SCALE,
         flip=False,
         ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
         base_size=config.TEST.BASE_SIZE,  # 2048
