@@ -8,10 +8,10 @@ from __future__ import print_function
 
 import os
 import logging
-import time
+import datetime
 from pathlib import Path
 from typing import Tuple
-
+import time
 import numpy as np
 
 import torch
@@ -145,8 +145,8 @@ def create_logger(cfg,
     Returns:
         logger
         final_output_dir:
-            output/cityscapes/pidnet_large_cityscapes
-            output/ade/pidnet_large_ade
+            output/cityscapes/pidnet_large_cityscapes_3_time
+            output/ade/pidnet_large_ade_4_time
         tensorboard_log_dir:
             log/cityscapes/pidnet_large_cityscapes/pidnet_large_cityscapes_time
             log/ade/pidnet_large_ade/pidnet_large_ade_time
@@ -183,6 +183,12 @@ def create_logger(cfg,
     print('=> creating {}'.format(tensorboard_log_dir))
     tensorboard_log_dir.mkdir(parents=True, exist_ok=True)
 
+
+    str_num_class = '_' + str(cfg.DATASET.NUM_CLASSES) + '_'
+    time_ = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")
+    final_output_dir = os.path.join(final_output_dir, str_num_class + time_)
+    if not os.path.exists(final_output_dir):
+        os.makedirs(final_output_dir)
     return logger, str(final_output_dir), str(tensorboard_log_dir)
 
 

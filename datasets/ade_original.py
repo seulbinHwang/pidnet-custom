@@ -17,6 +17,7 @@ import torch
 UNKNOWN_CLASS = 2
 # UNKNOWN_CLASS = 1
 
+
 def get_torch_gpu_device(gpu_idx: int = 0) -> str:
     if IS_MAC:
         assert torch.backends.mps.is_available()
@@ -35,21 +36,21 @@ else:
 
 
 class ADE(BaseDataset):
-
-    def __init__(self,
-                 root, #
-                 list_path,
-                 num_classes=19,
-                 multi_scale=True,
-                 flip=True,
-                 ignore_label=255,
-                 base_size=2048,
-                 crop_size=(512, 1024),
-                 scale_factor=16,
-                 low_resolution=False,
-                 mean=[0.485, 0.456, 0.406],
-                 std=[0.229, 0.224, 0.225],
-                 bd_dilate_size=4):
+    def __init__(
+            self,
+            root,  #
+            list_path,
+            num_classes=19,
+            multi_scale=True,
+            flip=True,
+            ignore_label=255,
+            base_size=2048,
+            crop_size=(512, 1024),
+            scale_factor=16,
+            low_resolution=False,
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
+            bd_dilate_size=4):
 
         super(ADE, self).__init__(
             ignore_label,
@@ -60,7 +61,7 @@ class ADE(BaseDataset):
             std,
         )
 
-        self.root = root # 'data/'
+        self.root = root  # 'data/'
         # 'list/ade/train.lst'
         self.list_path = list_path
         self.num_classes = num_classes
@@ -173,7 +174,10 @@ class ADE(BaseDataset):
                     "name": name
                 })
         return files
+
+
 ###### 07.26
+
     def convert_label(self, label, inverse=False):
         temp = label.copy()
         if inverse:
@@ -210,7 +214,7 @@ class ADE(BaseDataset):
         name = item["name"]  # ADE_train_00000936_gtFine_labelIds
         if self.low_resolution:
             # leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png
-            raise ValueError # TODO
+            raise ValueError  # TODO
             # path = os.path.join(self.root, 'cityscapes_resized', item["img"])
         else:
             path = os.path.join(self.root, 'cityscapes', item["img"])

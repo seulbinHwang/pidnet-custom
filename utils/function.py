@@ -182,7 +182,12 @@ def validate(config, testloader, full_model, writer_dict, eval_save_dir):
                                   mode='bilinear',
                                   align_corners=config.MODEL.ALIGN_CORNERS)
                 num_class = pred_i.size(1)  # 2
-                if num_class == 3:
+                if num_class == 2:
+                    color_map = [
+                        (0, 0, 255),  # person # blue.
+                        (0, 255, 0),  # background # green
+                    ]
+                elif num_class == 3:
                     color_map = [
                         (0, 0, 255),  # person # blue.
                         (0, 255, 0),  # grass # green

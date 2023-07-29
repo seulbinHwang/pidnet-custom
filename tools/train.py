@@ -11,9 +11,9 @@ import pprint
 
 import logging
 import timeit
+import random
 
 import numpy as np
-import datetime
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -23,13 +23,13 @@ from tensorboardX import SummaryWriter
 import _init_paths
 import models
 import datasets
-from datasets.ade import ADE
 from configs import config
 from configs import update_config
 from utils.criterion import CrossEntropy, OhemCrossEntropy, BoundaryLoss
 from utils import function
 from utils.utils import create_logger, FullModel
 import platform
+from typing import Tuple
 
 import torch
 
@@ -70,8 +70,9 @@ def load_pretrained(model, pretrained_directory):
 
     return model
 
-# python tools/train.py --cfg configs/ade/pidnet_large_ade_fine_tune.yaml --fine_tune True GPUS "(0,)" TRAIN.BATCH_SIZE_PER_GPU 6
-# python tools/train.py --cfg configs/ade/pidnet_large_ade.yaml GPUS "(0,)" TRAIN.BATCH_SIZE_PER_GPU 6
+
+# python tools/train.py --cfg configs/ade/pidnet_large_ade_fine_tune.yaml --enable_fine_tune True GPUS "(0,)" TRAIN.BATCH_SIZE_PER_GPU 4
+# python tools/train.py --cfg configs/ade/pidnet_large_ade.yaml GPUS "(0,)" TRAIN.BATCH_SIZE_PER_GPU 4
 def parse_args():
     # python tools/train.py --cfg configs/cityscapes/pidnet_large_ade.yaml GPUS "(0,1)" TRAIN.BATCH_SIZE_PER_GPU 6
     parser = argparse.ArgumentParser(description='Train segmentation network')
@@ -79,13 +80,14 @@ def parse_args():
     parser.add_argument(
         '--cfg',
         help='experiment configure file name',
-        default=  "configs/ade/pidnet_large_ade.yaml",#"configs/cityscapes/pidnet_large_cityscapes.yaml",# #, #  #
+        default=
+        "configs/ade/pidnet_large_ade.yaml",  #"configs/cityscapes/pidnet_large_cityscapes.yaml",# #, #  #
         type=str)
     parser.add_argument('--seed', type=int, default=304)
-    parser.add_argument('--fine_tune', type=bool, default=False)
+    parser.add_argument('--enable_fine_tune', type=bool, default=False)
     parser.add_argument('--pretrained_model_directory',
                         help='dir for pretrained model',
-                        default='./pretrained_models/cityscapes/best_3_0727.pt',
+                        default='./pretrained_models/cityscapes/best_3_rider.pt',
                         type=str)
     parser.add_argument('--low_resolution', type=bool, default=False)
     parser.add_argument('opts',
@@ -99,80 +101,54 @@ def parse_args():
     return args
 
 
+def select_gpus(config) -> Tuple[int]:
+    if IS_MAC:
+        gpus = (0, )
+    else:
+        gpus = list(config.GPUS)
+        device_num = torch.cuda.device_count()
+        if device_num == 1:
+            gpus = (0, )
+        elif device_num != len(gpus):
+            print(f"The gpu numbers do not match!, chosen gpus: {gpus}")
+    return gpus
+
+
+def make_model_and_load_param(args) -> nn.Module:
+    pretrain_exists = 'imagenet' in config.MODEL.PRETRAINED
+    model = models.pidnet.get_seg_model(config,
+                                        imgnet_pretrained=pretrain_exists)
+
+    ###################
+    if args.enable_fine_tune:
+        model = load_pretrained(model, args.pretrained_model_directory)
+        # Freeze all layers except the last head
+        requires_grad_name = ["seghead_p", "seghead_d", "final_layer"]
+        for name, param in model.named_parameters():
+            param.requires_grad = False
+            for requires_grad_name_ in requires_grad_name:
+                if requires_grad_name_ in name:
+                    param.requires_grad = True
+                    break
+    return model
+
+
 def main():
-    """
-    - Pretraining
-        - ImageNet
-        - random crop: 224 * 224 크기
-        - random horizontal flip (좌 우 바뀜)
-    - Training
-        - 15, 20, 52 논문의 학습 방식과 거의 유사
-        - learning rate 를 업데이트 하기 위해, poly strategy 사용
-        - random crop / random horizontal flip / random scaling: [0.5, 2.0]
-
-        - Cityscapes -> Camvid -> PASCAL Context
-            - epochs: 484 / 200 / 200
-            - initial learning rate: 1e-2 / 1e-3 / 1e-3
-            - weight decay: 5e-4 /  5e-4 / 1e-4
-            - cropped size: 1024*1024 / 960*720 / 520*520
-            - batch size: 12 / 12 / 16
-            - detail
-                - lr 이 5e-4 가 되기 전에 학습을 그만둠 (Overfitting 방지)
-                - Cityscapes 에서 학습된 모델을 Camvid 에서 fine-tuning
-                - Cityscapes / Camvid 모두 train set 과 val set 모두에서 학습
-    - Inference
-        - measurement protocol: 10, 20, 35, 45
-        - integrate batch normalization into the convolutional layers.
-        - batch size: 1 (inference speed를 측정하기 위해)
-    """
-    # train data를 불러와서, 어떻게 data augmentation 을 하는지 찾자.
-    # 하는 이유:
-    # 320 * 240 이하에서 잘 되도록 학습되었는지 확인해기 위해.
-    # fine tuning 할 때, data augmentation 을 어떻게 할지 참고하기 위해.
     args = parse_args()
-
     if args.seed > 0:
-        import random
-        print('Seeding with', args.seed)
         random.seed(args.seed)
         torch.manual_seed(args.seed)
     """
     final_output_dir: 
-        "output/cityscapes/pidnet_large_cityscapes"
-        "output/ade/pidnet_large_ade"
+        "output/ade/pidnet_large_ade_4_time"
     tb_log_dir:
-        "log/cityscapes/pidnet_large/pidnet_large_cityscapes_2023-07-19-23-01"
         "log/ade/pidnet_large/pidnet_large_ade_2023-07-19-23-01"
     """
     logger, final_output_dir, tb_log_dir = create_logger(cfg=config,
                                                          cfg_name=args.cfg,
                                                          phase='train')
-    str_num_class = '_' + str(config.DATASET.NUM_CLASSES) + '_'
-    time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")
-    final_output_dir = os.path.join(final_output_dir, str_num_class + time)
-    if not os.path.exists(final_output_dir):
-        os.makedirs(final_output_dir)
     logger.info(pprint.pformat(args))
     logger.info(config)
-    """
-tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제공하는 라이브러리입니다.
-
-주요 기능과 사용법은 다음과 같습니다:
-    SummaryWriter 객체 생성: 
-        SummaryWriter 클래스의 인스턴스를 생성하여 로그를 기록할 디렉토리를 지정합니다.
-    add_scalar(): 
-        스칼라 값(예: 손실, 정확도)을 기록합니다.
-    add_image(): 
-        이미지 데이터를 기록합니다.
-    add_histogram(): 
-        히스토그램 데이터를 기록합니다.
-    add_text(): 
-        텍스트 데이터를 기록합니다.
-    add_graph(): 
-        모델의 그래프를 기록합니다.
-    flush():
-        로그를 디스크에 저장하고 TensorBoard에 표시합니다.
-    """
     writer_dict = {
         'writer': SummaryWriter(logdir=tb_log_dir),
         'train_global_steps': 0,
@@ -183,77 +159,24 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
     cudnn.benchmark = config.CUDNN.BENCHMARK
     cudnn.deterministic = config.CUDNN.DETERMINISTIC
     cudnn.enabled = config.CUDNN.ENABLED
-    if IS_MAC:
-        gpus = [0]
-    else:
-        gpus = list(config.GPUS)
-        # if torch.cuda.device_count() != len(gpus):
-        #     print("The gpu numbers do not match!")
-        #     return 0
 
-    imgnet = 'imagenet' in config.MODEL.PRETRAINED
-    # PIDNet
-    model = models.pidnet.get_seg_model(config, imgnet_pretrained=imgnet)
-
-    ###################
-    if args.fine_tune:
-        model = load_pretrained(model, args.pretrained_model_directory)
-
-        # Freeze all layers except the last head
-        for name, param in model.named_parameters():
-            if 'head' not in name or "final" not in name:
-                param.requires_grad = False
-    ###################
-
-    # 6 * 1
+    gpus = select_gpus(config)
     batch_size = config.TRAIN.BATCH_SIZE_PER_GPU * len(gpus)
-    # prepare data
-    """
-    DATASET: cityscapes
-    ROOT: data/
-    TRAIN_SET: 'list/cityscapes/train.lst'
-    NUM_CLASSES: 19
-    MULTI_SCALE: True
-        다양한 크기의 이미지를 학습에 사용할지 여부를 결정하는 불리언 값입니다. 
-        True인 경우 다양한 크기의 이미지를 사용하여 모델의 일반화 능력을 향상시킵니다.
-    FLIP: True
-    IGNORE_LABEL: 255
-    BASE_SIZE: 2048
-    crop_size: (1024, 1024) / (720, 960)
-    SCALE_FACTOR: 16
-    """
+    model = make_model_and_load_param(args)
+
     crop_size = (config.TRAIN.IMAGE_SIZE[1], config.TRAIN.IMAGE_SIZE[0])
-    if config.DATASET.DATASET == 'ade':
-        # Dataset and Loader
-        train_dataset = ADE(
-            root=config.DATASET.ROOT,  # data/
-            list_path=config.DATASET.TRAIN_SET,  # "list/ade/training.odgt"
-            num_classes=config.DATASET.NUM_CLASSES,  # 4
-            multi_scale=config.TRAIN.MULTI_SCALE,  # True
-            flip=config.TRAIN.FLIP,  # True
-            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
-            base_size=config.TRAIN.BASE_SIZE,  # 2048
-            crop_size=crop_size,  # (1024, 1024)
-            scale_factor=config.TRAIN.SCALE_FACTOR,
-            low_resolution=args.low_resolution)  # 16
-        # train_dataset = ADETrainDataset(
-        #     root_dataset=config.DATASET.ROOT,  # "./data/"
-        #     odgt=config.DATASET.TRAIN_SET,  # "./data/training.odgt"
-        #     opt=config.DATASET,  #
-        #     batch_per_gpu=config.TRAIN.BATCH_SIZE_PER_GPU)  # 2
-    else:
-        # 1024, 1024
-        train_dataset = eval('datasets.' + config.DATASET.DATASET)(
-            root=config.DATASET.ROOT,  # data/
-            list_path=config.DATASET.TRAIN_SET,  # list/cityscapes/train.lst
-            num_classes=config.DATASET.NUM_CLASSES,  # 2
-            multi_scale=config.TRAIN.MULTI_SCALE,  # True
-            flip=config.TRAIN.FLIP,  # True
-            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
-            base_size=config.TRAIN.BASE_SIZE,  # 2048
-            crop_size=crop_size,  # (1024, 1024)
-            scale_factor=config.TRAIN.SCALE_FACTOR,
-            low_resolution=args.low_resolution)  # 16
+    # 1024, 1024
+    train_dataset = eval('datasets.' + config.DATASET.DATASET)(
+        root=config.DATASET.ROOT,  # data/
+        list_path=config.DATASET.TRAIN_SET,  # list/cityscapes/train.lst
+        num_classes=config.DATASET.NUM_CLASSES,  # 2, 3, 4
+        multi_scale=config.TRAIN.MULTI_SCALE,  # True
+        flip=config.TRAIN.FLIP,  # True
+        ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+        base_size=config.TRAIN.BASE_SIZE,  # 2048
+        crop_size=crop_size,  # (1024, 1024)
+        scale_factor=config.TRAIN.SCALE_FACTOR,
+        low_resolution=args.low_resolution)  # 16
     """
         train_dataset: 
             학습에 사용할 데이터셋 객체입니다. 
@@ -290,29 +213,16 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         drop_last=True)
     # 1024, 2048
     test_size = (config.TEST.IMAGE_SIZE[1], config.TEST.IMAGE_SIZE[0])
-    # cityscapes
-    if config.DATASET.DATASET == 'ade':
-        test_dataset = ADE(
-            root=config.DATASET.ROOT,  # data/
-            list_path=config.DATASET.TEST_SET,  # "list/ade/validation.odgt"
-            num_classes=config.DATASET.NUM_CLASSES,  # 4
-            multi_scale=config.TEST.MULTI_SCALE,
-            flip=False,
-            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
-            base_size=config.TEST.BASE_SIZE,  # 2048
-            crop_size=test_size,
-            low_resolution=args.low_resolution)  # 16
-    else:
-        test_dataset = eval('datasets.' + config.DATASET.DATASET)(
-            root=config.DATASET.ROOT,  # data/
-            list_path=config.DATASET.TEST_SET,  # list/cityscapes/val.lst
-            num_classes=config.DATASET.NUM_CLASSES,  # 2
-            multi_scale=False,
-            flip=False,
-            ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
-            base_size=config.TEST.BASE_SIZE,  # 2048
-            crop_size=test_size,
-            low_resolution=args.low_resolution)  # (1024, 2048)
+    test_dataset = eval('datasets.' + config.DATASET.DATASET)(
+        root=config.DATASET.ROOT,  # data/
+        list_path=config.DATASET.TEST_SET,  # list/cityscapes/val.lst
+        num_classes=config.DATASET.NUM_CLASSES,  # 2
+        multi_scale=False,
+        flip=False,
+        ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
+        base_size=config.TEST.BASE_SIZE,  # 2048
+        crop_size=test_size,
+        low_resolution=args.low_resolution)  # (1024, 2048)
 
     testloader = torch.utils.data.DataLoader(
         test_dataset,
@@ -380,8 +290,7 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
 
             full_model.module.model.load_state_dict({
                 k.replace('model.', ''): v
-                for k, v in dct.items()
-                if k.startswith('model.')
+                for k, v in dct.items() if k.startswith('model.')
             })
             optimizer.load_state_dict(checkpoint['optimizer'])
             logger.info("=> loaded checkpoint (epoch {})".format(
@@ -402,27 +311,6 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
         if current_trainloader.sampler is not None and hasattr(
                 current_trainloader.sampler, 'set_epoch'):
             current_trainloader.sampler.set_epoch(epoch)
-        """
-    # batch_size: 6 * 1
-    trainloader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=batch_size,  # 6* 1
-        shuffle=config.TRAIN.SHUFFLE,  # True
-        num_workers=config.WORKERS,  # 6
-        pin_memory=False,
-        drop_last=True)
-
-    train_dataset = eval('datasets.' + config.DATASET.DATASET)(
-        root=config.DATASET.ROOT,  # data/
-        list_path=config.DATASET.TRAIN_SET,  # list/cityscapes/train.lst
-        num_classes=config.DATASET.NUM_CLASSES,  # 19
-        multi_scale=config.TRAIN.MULTI_SCALE,  # True
-        flip=config.TRAIN.FLIP,  # True
-        ignore_label=config.TRAIN.IGNORE_LABEL,  # 255
-        base_size=config.TRAIN.BASE_SIZE,  # 2048
-        crop_size=crop_size,  # (1024, 1024)
-        scale_factor=config.TRAIN.SCALE_FACTOR)  # 16
-        """
         num_epoch = config.TRAIN.END_EPOCH  # 484
         base_lr = config.TRAIN.LR  # 0.01
         function.train(
@@ -436,9 +324,8 @@ tensorboardX는 PyTorch를 위한 TensorBoard의 호환 인터페이스를 제�
             optimizer,  # torch.optim.SGD
             full_model,
             writer_dict)
-        if flag_rm == 1 or (epoch % 5 == 0 and
-                            epoch < real_end - 100) or (epoch
-                                                        >= real_end - 100):
+        if flag_rm == 1 or (epoch % 5 == 0 and epoch < real_end - 100) or (
+                epoch >= real_end - 100):
             valid_loss, mean_IoU, IoU_array = function.validate(
                 config, testloader, full_model, writer_dict, eval_save_dir)
         if flag_rm == 1:

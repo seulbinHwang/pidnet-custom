@@ -17,6 +17,7 @@ import torch
 UNKNOWN_CLASS = 2
 # UNKNOWN_CLASS = 1
 
+
 def get_torch_gpu_device(gpu_idx: int = 0) -> str:
     if IS_MAC:
         assert torch.backends.mps.is_available()
@@ -35,21 +36,21 @@ else:
 
 
 class Cityscapes(BaseDataset):
-
-    def __init__(self,
-                 root, # data/
-                 list_path, # list/cityscapes/train.lst
-                 num_classes=19,# 2
-                 multi_scale=True, # True
-                 flip=True,# True
-                 ignore_label=255,
-                 base_size=2048,
-                 crop_size=(512, 1024), # (1024, 1024)
-                 scale_factor=16, # 16
-                 low_resolution=False,
-                 mean=[0.485, 0.456, 0.406],
-                 std=[0.229, 0.224, 0.225],
-                 bd_dilate_size=4):
+    def __init__(
+            self,
+            root,  # data/
+            list_path,  # list/cityscapes/train.lst
+            num_classes=19,  # 2
+            multi_scale=True,  # True
+            flip=True,  # True
+            ignore_label=255,
+            base_size=2048,
+            crop_size=(512, 1024),  # (1024, 1024)
+            scale_factor=16,  # 16
+            low_resolution=False,
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
+            bd_dilate_size=4):
 
         super(Cityscapes, self).__init__(
             ignore_label,
@@ -60,7 +61,7 @@ class Cityscapes(BaseDataset):
             std,
         )
 
-        self.root = root # data/
+        self.root = root  # data/
         # 'list/cityscapes/train.lst'
         self.list_path = list_path
         self.num_classes = num_classes
@@ -76,67 +77,106 @@ class Cityscapes(BaseDataset):
         # List[Dict[str, str]] # img, label, name
         self.files: List[Dict[str, str]] = self.read_files()
         # check
-        self.label_mapping = {
-            -1: UNKNOWN_CLASS,  #
-            0: UNKNOWN_CLASS,
-            1: UNKNOWN_CLASS,
-            2: UNKNOWN_CLASS,
-            3: UNKNOWN_CLASS,
-            4: UNKNOWN_CLASS,
-            5: UNKNOWN_CLASS,
-            6: UNKNOWN_CLASS,
-            7: UNKNOWN_CLASS,  # road
-            8: UNKNOWN_CLASS,  # sidewalk
-            9: UNKNOWN_CLASS,
-            10: UNKNOWN_CLASS,
-            11: UNKNOWN_CLASS,  # building
-            12: UNKNOWN_CLASS,  # wall
-            13: UNKNOWN_CLASS,  # fence
-            14: UNKNOWN_CLASS,
-            15: UNKNOWN_CLASS,
-            16: UNKNOWN_CLASS,
-            17: UNKNOWN_CLASS,  # pole
-            18: UNKNOWN_CLASS,
-            19: UNKNOWN_CLASS,  # traffic light
-            20: UNKNOWN_CLASS,  # traffic sign
-            21: UNKNOWN_CLASS,  # vegetation
-            22: 1,  # terrain
-            23: UNKNOWN_CLASS,  # sky
-            24: 0,  # person
-            25: 0,  # rider
-            26: UNKNOWN_CLASS,  # car
-            27: UNKNOWN_CLASS,  # truck
-            28: UNKNOWN_CLASS,  # bus
-            29: UNKNOWN_CLASS,
-            30: UNKNOWN_CLASS,
-            31: UNKNOWN_CLASS,  # train
-            32: UNKNOWN_CLASS,  # motorcycle
-            33: UNKNOWN_CLASS  # bicycle /
-        }
-        # if IS_MAC:
-        #     # check
-        #     self.class_weights = torch.FloatTensor([
-        #         1.0023,
-        #         0.0843,
-        #     ]).to(device=device)
-        # else:
-        #     self.class_weights = torch.FloatTensor([
-        #         1.0023,
-        #         0.0843,
-        #     ]).cuda()
-        if IS_MAC:
-            # check
-            self.class_weights = torch.FloatTensor([
-                1.0023,
-                0.3000,
-                0.0843,
-            ]).to(device=device)
+        if self.num_classes == 2:
+            self.label_mapping = {
+                -1: UNKNOWN_CLASS,  #
+                0: UNKNOWN_CLASS,
+                1: UNKNOWN_CLASS,
+                2: UNKNOWN_CLASS,
+                3: UNKNOWN_CLASS,
+                4: UNKNOWN_CLASS,
+                5: UNKNOWN_CLASS,
+                6: UNKNOWN_CLASS,
+                7: UNKNOWN_CLASS,  # road
+                8: UNKNOWN_CLASS,  # sidewalk
+                9: UNKNOWN_CLASS,
+                10: UNKNOWN_CLASS,
+                11: UNKNOWN_CLASS,  # building
+                12: UNKNOWN_CLASS,  # wall
+                13: UNKNOWN_CLASS,  # fence
+                14: UNKNOWN_CLASS,
+                15: UNKNOWN_CLASS,
+                16: UNKNOWN_CLASS,
+                17: UNKNOWN_CLASS,  # pole
+                18: UNKNOWN_CLASS,
+                19: UNKNOWN_CLASS,  # traffic light
+                20: UNKNOWN_CLASS,  # traffic sign
+                21: UNKNOWN_CLASS,  # vegetation
+                22: UNKNOWN_CLASS,  # terrain
+                23: UNKNOWN_CLASS,  # sky
+                24: 0,  # person
+                25: 0,  # rider
+                26: UNKNOWN_CLASS,  # car
+                27: UNKNOWN_CLASS,  # truck
+                28: UNKNOWN_CLASS,  # bus
+                29: UNKNOWN_CLASS,
+                30: UNKNOWN_CLASS,
+                31: UNKNOWN_CLASS,  # train
+                32: UNKNOWN_CLASS,  # motorcycle
+                33: UNKNOWN_CLASS  # bicycle /
+            }
+            if IS_MAC:
+                # check
+                self.class_weights = torch.FloatTensor([
+                    1.0023,
+                    0.0843,
+                ]).to(device=device)
+            else:
+                self.class_weights = torch.FloatTensor([
+                    1.0023,
+                    0.0843,
+                ]).cuda()
         else:
-            self.class_weights = torch.FloatTensor([
-                1.0023,
-                0.3000,
-                0.0843,
-            ]).cuda()
+            self.label_mapping = {
+                -1: UNKNOWN_CLASS,  #
+                0: UNKNOWN_CLASS,
+                1: UNKNOWN_CLASS,
+                2: UNKNOWN_CLASS,
+                3: UNKNOWN_CLASS,
+                4: UNKNOWN_CLASS,
+                5: UNKNOWN_CLASS,
+                6: UNKNOWN_CLASS,
+                7: UNKNOWN_CLASS,  # road
+                8: UNKNOWN_CLASS,  # sidewalk
+                9: UNKNOWN_CLASS,
+                10: UNKNOWN_CLASS,
+                11: UNKNOWN_CLASS,  # building
+                12: UNKNOWN_CLASS,  # wall
+                13: UNKNOWN_CLASS,  # fence
+                14: UNKNOWN_CLASS,
+                15: UNKNOWN_CLASS,
+                16: UNKNOWN_CLASS,
+                17: UNKNOWN_CLASS,  # pole
+                18: UNKNOWN_CLASS,
+                19: UNKNOWN_CLASS,  # traffic light
+                20: UNKNOWN_CLASS,  # traffic sign
+                21: UNKNOWN_CLASS,  # vegetation
+                22: 1,  # terrain
+                23: UNKNOWN_CLASS,  # sky
+                24: 0,  # person
+                25: 0,  # rider
+                26: UNKNOWN_CLASS,  # car
+                27: UNKNOWN_CLASS,  # truck
+                28: UNKNOWN_CLASS,  # bus
+                29: UNKNOWN_CLASS,
+                30: UNKNOWN_CLASS,
+                31: UNKNOWN_CLASS,  # train
+                32: UNKNOWN_CLASS,  # motorcycle
+                33: UNKNOWN_CLASS  # bicycle /
+            }
+            if IS_MAC:
+                # check
+                self.class_weights = torch.FloatTensor([
+                    1.0023,
+                    0.3000,
+                    0.0843,
+                ]).to(device=device)
+            else:
+                self.class_weights = torch.FloatTensor([
+                    1.0023,
+                    0.3000,
+                    0.0843,
+                ]).cuda()
 
         self.bd_dilate_size = bd_dilate_size
 

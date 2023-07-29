@@ -15,7 +15,6 @@ x_k_size = 6
 
 
 class BaseDataset(data.Dataset):
-
     def __init__(self,
                  ignore_label=255,
                  base_size=2048,
@@ -47,10 +46,12 @@ class BaseDataset(data.Dataset):
         image /= self.std
         return image
 
-    def parse_input_list(self, data_list_dir, max_sample=-1, start_idx=-1,
+    def parse_input_list(self,
+                         data_list_dir,
+                         max_sample=-1,
+                         start_idx=-1,
                          end_idx=-1) -> List[Dict[str, Any]]:
         """
-
         :param data_list_dir: "./data/training.odgt"
 {
 "fpath_img": "ADEChallengeData2016/images/training/ADE_train_00000001.jpg",
@@ -62,12 +63,14 @@ class BaseDataset(data.Dataset):
         :param start_idx:
         :param end_idx:
         :return:
+
         """
         if isinstance(data_list_dir, list):
             list_sample = data_list_dir
         elif isinstance(data_list_dir, str):
-            list_sample = [json.loads(x.rstrip()) for x in
-                                open(data_list_dir, 'r')]
+            list_sample = [
+                json.loads(x.rstrip()) for x in open(data_list_dir, 'r')
+            ]
         else:
             raise Exception('Invalid data list dir.')
         if max_sample > 0:
@@ -100,10 +103,17 @@ class BaseDataset(data.Dataset):
 
     def rand_crop(self, image, label, edge):
         h, w = image.shape[:-1]
-        image = self.pad_image(image, h, w, self.crop_size, padvalue=(0.0, 0.0, 0.0)) # 최소 1024, 1024
-        label = self.pad_image(label, h, w, self.crop_size,
-                               padvalue=(self.ignore_label,)) # 255
-        edge = self.pad_image(edge, h, w, self.crop_size, padvalue=(0.0,))
+        image = self.pad_image(image,
+                               h,
+                               w,
+                               self.crop_size,
+                               padvalue=(0.0, 0.0, 0.0))  # 최소 1024, 1024
+        label = self.pad_image(label,
+                               h,
+                               w,
+                               self.crop_size,
+                               padvalue=(self.ignore_label, ))  # 255
+        edge = self.pad_image(edge, h, w, self.crop_size, padvalue=(0.0, ))
 
         new_h, new_w = label.shape
         x = random.randint(0, new_w - self.crop_size[1])

@@ -10,7 +10,6 @@ from .base_dataset import BaseDataset
 
 
 class CamVid(BaseDataset):
-
     def __init__(self,
                  root,
                  list_path,
@@ -70,7 +69,7 @@ class CamVid(BaseDataset):
         return label.astype(np.uint8)
 
     def label2color(self, label):
-        color_map = np.zeros(label.shape + (3,))
+        color_map = np.zeros(label.shape + (3, ))
         for i, v in enumerate(self.color_list):
             color_map[label == i] = self.color_list[i]
 

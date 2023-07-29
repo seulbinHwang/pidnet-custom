@@ -47,11 +47,10 @@ else:
 def parse_args():
     parser = argparse.ArgumentParser(description='Train segmentation network')
 
-    parser.add_argument(
-        '--cfg',
-        help='experiment configure file name',
-        default="configs/cityscapes/pidnet_large_ade.yaml",
-        type=str)
+    parser.add_argument('--cfg',
+                        help='experiment configure file name',
+                        default="configs/cityscapes/pidnet_large_ade.yaml",
+                        type=str)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -96,8 +95,7 @@ def main():
     model_dict = model.state_dict()
     pretrained_dict = {
         k[6:]: v
-        for k, v in pretrained_dict.items()
-        if k[6:] in model_dict.keys()
+        for k, v in pretrained_dict.items() if k[6:] in model_dict.keys()
     }
     for k, _ in pretrained_dict.items():
         logger.info('=> loading {} from pretrained model'.format(k))
