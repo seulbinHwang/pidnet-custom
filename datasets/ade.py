@@ -114,11 +114,14 @@ class ADE(BaseDataset):
         self.idx_to_class = self.class_info.idx_to_class
         self.label_mapping = {
             idx: UNKNOWN_CLASS
-            for idx in range(len(self.idx_to_class))
-        } # length: 150
+            for idx in range(256)
+        }
+        # self.label_mapping = {
+        #     idx: UNKNOWN_CLASS
+        #     for idx in range(len(self.idx_to_class))
+        # } # length: 150
         for idx, target_class in enumerate(self.target_classes):
             self.label_mapping[self.class_to_idx[target_class]] = idx
-
         self.bd_dilate_size = bd_dilate_size # 4
         # List[Dict[str, str]] # img, label, name
         self.files = self.read_files()
@@ -167,6 +170,11 @@ class ADE(BaseDataset):
         return files
 
     def convert_label(self, label, inverse=False):
+        # # Get the unique elements and their counts
+        # unique_elements, counts = np.unique(label, return_counts=True)
+        #
+        # # Count the number of different values
+        # num_different_values = len(unique_elements)
         temp = label.copy()
         if inverse:
             for v, k in self.label_mapping.items():
@@ -175,6 +183,13 @@ class ADE(BaseDataset):
             for k, v in self.label_mapping.items():
                 # v에 ignore label이 있음.
                 label[temp == k] = v
+        # Get the unique elements and their counts
+        unique_elements, counts = np.unique(label, return_counts=True)
+        # Count the number of different values
+        num_different_values = len(unique_elements)
+        assert num_different_values <= self.num_classes, \
+            f"num_different_values: {num_different_values}, " \
+            f"self.num_classes: {self.num_classes}"
         return label
 
     def __getitem__(

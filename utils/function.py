@@ -192,14 +192,14 @@ def validate(config, testloader, full_model, writer_dict, eval_save_dir):
                         (0, 0, 255),  # person # blue.
                         (0, 255, 0),  # grass # green
                         # (255, 255, 0),  # ball, # yellow
-                        (135, 206, 235)  # background # black
+                        (135, 206, 235)  # background #
                     ]
                 elif num_class == 4:
                     color_map = [
                         (0, 0, 255),  # person # blue.
                         (0, 255, 0),  # grass # green
                         (255, 255, 0),  # ball, # yellow
-                        (135, 206, 235)  # background # black
+                        (135, 206, 235)  # background #
                     ]
                 else:
                     raise NotImplementedError
@@ -221,7 +221,7 @@ def validate(config, testloader, full_model, writer_dict, eval_save_dir):
                     gt_img = image.clone().detach().cpu().numpy(
                     )[rand_idx_in_batch].transpose(1, 2, 0) # [height, width, num_channels]
                     original_gt_img = reverse_input_transform(gt_img).astype(np.uint8)
-                    gt_img = np.zeros_like(gt_img).astype(np.uint8)
+                    gt_img = np.zeros_like(gt_img).astype(np.uint8) # [height, width, num_channels]
                     result_img = gt_img.copy()
                     label_copy = label.clone().detach().cpu().numpy().astype(
                         np.uint8)[rand_idx_in_batch]  # [height, width]
